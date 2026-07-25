@@ -29,9 +29,10 @@
   main { max-width: 780px; margin: 0 auto; padding: 16px 14px; }
   @media (max-width: 640px) {
     nav { position: fixed; top: auto; bottom: 0; left: 0; right: 0; border-top: 1px solid var(--border); border-bottom: none; box-shadow: 0 -1px 10px rgba(20,32,74,.06); }
-    nav button { border-bottom: none; font-size: .62rem; padding: 7px 3px calc(7px + env(safe-area-inset-bottom)); }
+    nav button { border-bottom: none; font-size: .68rem; gap: 4px; padding: 11px 3px calc(11px + env(safe-area-inset-bottom)); }
+    nav button svg { width: 27px; height: 27px; }
     nav button.active { border-bottom: none; }
-    main { padding-bottom: 80px; }
+    main { padding-bottom: 92px; }
   }
   .card { background: var(--card); border: 1px solid #e7ecf7; border-radius: 16px; padding: 18px; margin-bottom: 14px; }
   .card h2 { font-family: var(--serif); font-size: 1.05rem; font-weight: 400; letter-spacing: .08em; color: var(--green); margin-bottom: 10px; text-transform: uppercase; }
@@ -147,28 +148,9 @@
     <div class="note" id="hiNote"></div>
   </div>
   <div class="card alert-warn hidden" id="dropWarn"></div>
-  <div class="card">
-    <h2>Aggiungi una gara</h2>
-    <p class="note" style="margin-top:0">Ogni volta che giochi, aggiungila qui: Claret aggiorna il tuo handicap con le regole WHS. Nessun dato esce dal tuo dispositivo.</p>
-    <label>Cerca il circolo</label>
-    <div class="search-wrap">
-      <input id="addSearch" placeholder="es. Carimate..." autocomplete="off">
-      <div class="suggestions hidden" id="addSugg"></div>
-    </div>
-    <div id="addCourseArea"></div>
-    <div class="row">
-      <div><label>Data</label><input type="date" id="addDate"></div>
-      <div><label>Punti Stableford</label><input type="number" id="addStbl" min="0" max="60" placeholder="es. 34"></div>
-    </div>
-    <label>Tipo di gara</label>
-    <select id="addFormat">
-      <option value="ind">Individuale — conta per l'handicap</option>
-      <option value="team">A coppie / squadra — di norma non conta</option>
-    </select>
-    <button class="btn" onclick="addRound()">Aggiungi gara</button>
-    <span class="note" id="addMsg" style="margin-left:8px"></span>
-    <p class="note" id="teamNote" style="display:none">Le gare a coppie/squadra di norma non aggiornano l'handicap: la registro nello storico ma non nel calcolo. Eccezione: un four-ball può contare se la gara è registrata dal circolo come qualificante — in quel caso il valore arriverà correttamente quando reimporti da FIG.</p>
-  </div>
+  <button class="btn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;margin:0 0 14px" onclick="openAddModal()">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Aggiungi gara
+  </button>
   <div class="card">
     <div class="pill-row" id="trendRange" style="margin:0 0 12px">
       <span class="pill sel" data-r="all">Da sempre</span>
@@ -193,6 +175,35 @@
     <div id="lastRounds"></div>
   </div>
 </section>
+
+<!-- ===== MODALE AGGIUNGI GARA ===== -->
+<div id="addModal" class="overlay hidden" onclick="if(event.target===this)closeAddModal()">
+  <div class="card ov-card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <h2 style="margin:0;border:0">Aggiungi una gara</h2>
+      <button onclick="closeAddModal()" aria-label="Chiudi" style="background:none;border:none;font-size:1.6rem;line-height:.8;color:var(--muted);cursor:pointer;padding:0">×</button>
+    </div>
+    <p class="note" style="margin-top:4px">Claret aggiorna il tuo handicap con le regole WHS. Nessun dato esce dal tuo dispositivo.</p>
+    <label>Cerca il circolo</label>
+    <div class="search-wrap">
+      <input id="addSearch" placeholder="es. Carimate..." autocomplete="off">
+      <div class="suggestions hidden" id="addSugg"></div>
+    </div>
+    <div id="addCourseArea"></div>
+    <div class="row">
+      <div><label>Data</label><input type="date" id="addDate"></div>
+      <div><label>Punti Stableford</label><input type="number" id="addStbl" min="0" max="60" placeholder="es. 34"></div>
+    </div>
+    <label>Tipo di gara</label>
+    <select id="addFormat">
+      <option value="ind">Individuale — conta per l'handicap</option>
+      <option value="team">A coppie / squadra — di norma non conta</option>
+    </select>
+    <button class="btn" style="width:100%" onclick="addRound()">Aggiungi gara</button>
+    <span class="note" id="addMsg" style="display:block;text-align:center;margin-top:8px"></span>
+    <p class="note" id="teamNote" style="display:none">Le gare a coppie/squadra di norma non aggiornano l'handicap: la registro nello storico ma non nel calcolo. Eccezione: un four-ball può contare se la gara è registrata dal circolo come qualificante — in quel caso il valore arriverà correttamente quando reimporti da FIG.</p>
+  </div>
+</div>
 
 <!-- ===== PLAYING HANDICAP ===== -->
 <section id="tab-play" class="hidden">
@@ -736,8 +747,15 @@ function addRound() {
   if ($('addFormat')) { $('addFormat').value = 'ind'; if ($('teamNote')) $('teamNote').style.display='none'; }
   $('addMsg').textContent = 'Gara aggiunta \u2713';
   setTimeout(()=>{ $('addMsg').textContent=''; }, 2500);
+  closeAddModal();
   renderAll();
 }
+function openAddModal() {
+  if (!$('addDate').value) { const t=new Date(); $('addDate').value = t.toISOString().slice(0,10); }
+  $('addModal').classList.remove('hidden');
+  setTimeout(()=>{ const s=$('addSearch'); if(s) s.focus(); }, 60);
+}
+function closeAddModal() { $('addModal').classList.add('hidden'); }
 function delRound(id) {
   if (!id) return;
   if (!confirm('Eliminare questa gara?')) return;
