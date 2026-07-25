@@ -258,6 +258,12 @@
     <div class="tric" style="width:90px;margin:0 auto 6px"></div>
     <h2 id="authTitle" style="text-align:center;border:0">Accedi</h2>
     <p class="note" style="text-align:center;margin-top:0">Entra per ritrovare i tuoi dati su ogni dispositivo.</p>
+    <div id="authNameFields" class="hidden">
+      <label>Nome</label>
+      <input id="authNome" type="text" autocomplete="given-name" placeholder="es. Mario">
+      <label>Cognome</label>
+      <input id="authCognome" type="text" autocomplete="family-name" placeholder="es. Rossi">
+    </div>
     <label>Email</label>
     <input id="authEmail" type="email" autocomplete="email" placeholder="tuo@email.it">
     <label>Password</label>
@@ -899,6 +905,7 @@ function authToggle() {
   $('authTitle').textContent = authMode === 'login' ? 'Accedi' : 'Registrati';
   $('authBtn').textContent = authMode === 'login' ? 'Accedi' : 'Registrati';
   $('authSwitch').textContent = authMode === 'login' ? 'Non hai un account? Registrati' : 'Hai già un account? Accedi';
+  $('authNameFields').classList.toggle('hidden', authMode !== 'signup');
   $('authMsg').textContent = '';
 }
 function tradErr(m) {
@@ -909,16 +916,20 @@ function tradErr(m) {
 }
 async function authSubmit() {
   const email = ($('authEmail').value||'').trim(), pass = $('authPass').value||'';
+  const nome = ($('authNome').value||'').trim(), cognome = ($('authCognome').value||'').trim();
   if (!email || !pass) { $('authMsg').textContent = 'Inserisci email e password.'; return; }
+  if (authMode === 'signup' && (!nome || !cognome)) { $('authMsg').textContent = 'Inserisci nome e cognome.'; return; }
   $('authMsg').textContent = 'Attendere…';
+  const fullName = (nome + ' ' + cognome).trim();
   const res = authMode === 'login'
     ? await cloud.auth.signInWithPassword({ email, password: pass })
-    : await cloud.auth.signUp({ email, password: pass });
+    : await cloud.auth.signUp({ email, password: pass, options: { data: { nome, cognome, full_name: fullName } } });
   if (res.error) { $('authMsg').textContent = tradErr(res.error.message); return; }
   if (!res.data.session) { $('authMsg').textContent = 'Ti ho inviato una email di conferma: aprila, poi torna qui e accedi.'; return; }
   USER = res.data.user;
   $('authOverlay').classList.add('hidden');
   await loadCloud();
+  if (authMode === 'signup' && fullName) { S.name = fullName; save(); }   // nuovo utente: salva il nome nel profilo
   afterAuth();
 }
 function afterAuth() {
