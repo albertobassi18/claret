@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claret – Il tuo golf, sempre con te</title>
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="%231d43c8"/><text x="8" y="48" font-family="Georgia,serif" font-size="46" fill="white">C</text><rect x="36" y="12" width="2" height="34" fill="white"/><polygon points="38,12 56,17 38,23" fill="%231b7a3d"/></svg>'>
+<style>
+  :root {
+    --green: #132d80; --green-mid: #1d43c8; --green-light: #e9eefb;
+    --accent: #ffffff; --text: #16204a; --muted: #5a6486; --card: #fff;
+    --bg: #f3f5fb; --border: #d9e0f3; --red: #ce2b37; --blue: #1d43c8;
+    --grass: #1b7a3d; --serif: 'Didot', 'Bodoni MT', Georgia, 'Times New Roman', serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); }
+  header { background: #1d43c8; color: #fff; padding: 18px 20px 14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+  .brand { display:flex; align-items:center; gap:12px; }
+  .brand svg { height: 46px; width: auto; display:block; }
+  .brand .word { font-family: var(--serif); font-weight: 400; font-size: 1.55rem; letter-spacing: .38em; text-indent: .38em; line-height: 1.1; }
+  .brand .tric { margin-top: 4px; height: 3px; width: 100%; background: linear-gradient(90deg, #1b7a3d 0 33%, #fff 33% 66%, #ce2b37 66% 100%); border-radius: 2px; }
+  header .who { font-size: .78rem; opacity: .9; }
+  nav { display: flex; background: #132d80; overflow-x: auto; position: sticky; top: 0; z-index: 10; }
+  nav button { flex: 1; min-width: 86px; background: none; border: none; color: #b9c6f2; padding: 12px 6px; font-size: .8rem; cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }
+  nav button.active { color: #fff; font-weight: 700; border-bottom-color: #fff; }
+  main { max-width: 780px; margin: 0 auto; padding: 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .card h2 { font-family: var(--serif); font-size: 1.05rem; font-weight: 400; letter-spacing: .08em; color: var(--green); margin-bottom: 10px; text-transform: uppercase; }
+  .hi-big { text-align: center; padding: 22px 16px; }
+  .hi-big .val { font-size: 3.6rem; font-weight: 800; color: var(--green); line-height: 1; }
+  .hi-big .lbl { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 6px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > * { flex: 1; min-width: 120px; }
+  label { display: block; font-size: .74rem; color: var(--muted); margin: 8px 0 3px; }
+  input, select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: .95rem; background: #fff; }
+  textarea { width: 100%; min-height: 90px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: .8rem; font-family: monospace; }
+  button.btn { background: var(--green-mid); color: #fff; border: none; border-radius: 8px; padding: 11px 18px; font-size: .95rem; font-weight: 600; cursor: pointer; margin-top: 12px; }
+  button.btn.secondary { background: #e8e8e8; color: var(--text); }
+  .result-box { background: var(--green-light); border-radius: 10px; padding: 14px; margin-top: 14px; text-align: center; }
+  .result-box .big { font-size: 2.2rem; font-weight: 800; color: var(--green); }
+  .result-box .sub { font-size: .8rem; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+  th, td { padding: 7px 5px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-size: .68rem; text-transform: uppercase; position: sticky; top: 0; background: #fff; }
+  .tag { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: .68rem; font-weight: 700; }
+  .tag.count { background: var(--green-light); color: var(--green); }
+  .tag.no { background: #f0f0f0; color: #999; }
+  .note { font-size: .76rem; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  @media (max-width: 560px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+  .stat { background: var(--green-light); border-radius: 10px; padding: 10px; text-align: center; }
+  .stat .v { font-size: 1.25rem; font-weight: 800; color: var(--green); }
+  .stat .l { font-size: .64rem; color: var(--muted); text-transform: uppercase; }
+  .up { color: var(--red); } .down { color: var(--grass); }
+  .hidden { display: none; }
+  a { color: var(--blue); }
+  #trend svg, #trendSim svg { width: 100%; height: 140px; }
+  .search-wrap { position: relative; }
+  .suggestions { position: absolute; left:0; right:0; top:100%; background:#fff; border:1px solid var(--border); border-radius:0 0 10px 10px; max-height: 240px; overflow-y:auto; z-index: 20; box-shadow: 0 6px 16px rgba(0,0,0,.12); }
+  .suggestions div { padding: 10px 12px; cursor: pointer; font-size: .9rem; border-bottom: 1px solid #f2f2f2; }
+  .suggestions div:hover { background: var(--green-light); }
+  .pill-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .pill { background:#eef5ee; border:1px solid var(--border); border-radius:20px; padding:6px 12px; font-size:.8rem; cursor:pointer; }
+  .pill.sel { background: var(--green); color:#fff; border-color: var(--green); }
+  .badge-live { background: #1d43c8; color:#fff; font-size:.62rem; font-weight:800; padding:2px 8px; border-radius:10px; vertical-align: middle; letter-spacing:.5px; border-bottom: 2px solid; border-image: linear-gradient(90deg,#1b7a3d 0 33%,#fff 33% 66%,#ce2b37 66% 100%) 1; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 112 118" xmlns="http://www.w3.org/2000/svg" aria-label="Claret">
+      <defs><clipPath id="pen"><polygon points="66,20 104,31 66,44"/></clipPath></defs>
+      <text x="2" y="92" font-family="Didot, 'Bodoni MT', Georgia, serif" font-size="102" fill="#ffffff">C</text>
+      <path d="M28 98 Q 66 84 104 96 Q 84 110 46 106 Q 32 104 28 98 Z" fill="#1b7a3d"/>
+      <ellipse cx="66" cy="97" rx="7" ry="2.4" fill="#ffffff"/>
+      <rect x="64.4" y="20" width="3" height="77" rx="1.5" fill="#ffffff"/>
+      <g clip-path="url(#pen)">
+        <rect x="66" y="18" width="13" height="28" fill="#1b7a3d"/>
+        <rect x="79" y="18" width="13" height="28" fill="#ffffff"/>
+        <rect x="92" y="18" width="13" height="28" fill="#ce2b37"/>
+      </g>
+    </svg>
+    <div>
+      <div class="word">CLARET</div>
+      <div class="tric"></div>
+    </div>
+  </div>
+  <div class="who"><span id="whoami">—</span> · <a href="#" id="logoutBtn" style="color:#fff;text-decoration:underline">Esci</a></div>
+</header>
+<nav>
+  <button data-tab="dash" class="active">Handicap</button>
+  <button data-tab="play">HCP di gioco</button>
+  <button data-tab="sim">Simulatore</button>
+  <button data-tab="rounds">Risultati</button>
+</nav>
+<main>
+
+<!-- ===== DASHBOARD ===== -->
+<section id="tab-dash">
+  <div class="card hi-big">
+    <div class="val" id="hiVal">–</div>
+    <div class="lbl">Handicap Index FIG</div>
+    <div class="note" id="hiNote"></div>
+  </div>
+  <div class="card">
+    <div class="pill-row" id="trendRange" style="margin:0 0 12px">
+      <span class="pill sel" data-r="all">Da sempre</span>
+      <span class="pill" data-r="12">12 mesi</span>
+      <span class="pill" data-r="6">6 mesi</span>
+      <span class="pill" data-r="3">3 mesi</span>
+      <span class="pill" data-r="ytd">YTD</span>
+    </div>
+    <div class="stat-grid">
+      <div class="stat"><div class="v" id="stRounds">0</div><div class="l">Gare</div></div>
+      <div class="stat"><div class="v" id="stBest">–</div><div class="l">Miglior diff.</div></div>
+      <div class="stat"><div class="v" id="stLow">–</div><div class="l">Low index</div></div>
+      <div class="stat"><div class="v" id="stTrend">–</div><div class="l">Variazione index</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Andamento Handicap Index</h2>
+    <div id="trend"></div>
+  </div>
+  <div class="card">
+    <h2>Ultime gare</h2>
+    <div id="lastRounds"></div>
+  </div>
+</section>
+
+<!-- ===== PLAYING HANDICAP ===== -->
+<section id="tab-play" class="hidden">
+  <div class="card">
+    <h2>Handicap di gioco <span class="badge-live">DATABASE FIG</span></h2>
+    <label>Cerca il circolo (tutti i campi italiani inclusi)</label>
+    <div class="search-wrap">
+      <input id="playSearch" placeholder="es. Robinie, Carimate, Monticello..." autocomplete="off">
+      <div class="suggestions hidden" id="playSugg"></div>
+    </div>
+    <div id="playCourseArea"></div>
+    <div class="row">
+      <div><label>Formula gara</label>
+        <select id="playAllow">
+          <option value="100">Gara individuale / amichevole (100%)</option>
+          <option value="95">Stroke play con riduzione 95%</option>
+          <option value="85">Quattro palle – miglior palla (85%)</option>
+          <option value="90">Foursome (90%)</option>
+        </select>
+      </div>
+      <div><label>Handicap Index</label><input type="number" step="0.1" id="playHI"></div>
+    </div>
+    <div class="result-box hidden" id="playRes"></div>
+    <p class="note">Campo estero o mancante? <a href="#" onclick="toggleManual();return false">Inserimento manuale CR/Slope</a> (li trovi sullo scorecard o su <a href="https://ncrdb.usga.org/" target="_blank">USGA NCRDB</a>).</p>
+    <div id="manualArea" class="hidden">
+      <div class="row">
+        <div><label>Course Rating</label><input type="number" step="0.1" id="mCR"></div>
+        <div><label>Slope</label><input type="number" id="mSlope"></div>
+        <div><label>Par</label><input type="number" id="mPar" value="72"></div>
+      </div>
+      <button class="btn" onclick="calcManual()">Calcola</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SIMULATORE ===== -->
+<section id="tab-sim" class="hidden">
+  <div class="card">
+    <h2>Simulatore pre-gara</h2>
+    <p class="note" style="margin:0 0 8px">Scegli il campo della tua prossima gara e scopri come cambierebbe il tuo Handicap Index.</p>
+    <label>Cerca il circolo</label>
+    <div class="search-wrap">
+      <input id="simSearch" placeholder="es. Robinie..." autocomplete="off">
+      <div class="suggestions hidden" id="simSugg"></div>
+    </div>
+    <div id="simCourseArea"></div>
+    <label>Punti Stableford previsti</label>
+    <input type="number" id="simStbl" placeholder="es. 32" min="0" max="60">
+    <button class="btn" onclick="runSim()">Simula</button>
+    <div class="result-box hidden" id="simRes"></div>
+    <p class="note">Inserisci i punti Stableford che pensi di fare: lo score rettificato viene calcolato con la formula WHS (Par + Playing Handicap + 36 − punti), la stessa usata dalla FIG — verificata sulle tue gare reali. Simulazione su percorsi 18 buche, gara individuale.</p>
+  </div>
+</section>
+
+<!-- ===== RISULTATI ===== -->
+<section id="tab-rounds" class="hidden">
+  <div class="card">
+    <h2>Le tue gare <span class="badge-live" id="syncBadge">FIG</span></h2>
+    <div class="row">
+      <div><label>Filtra per circolo</label><select id="fClub"><option value="">Tutti</option></select></div>
+      <div><label>Anno</label><select id="fYear"><option value="">Tutti</option></select></div>
+    </div>
+    <div style="overflow-x:auto; max-height: 65vh; margin-top:10px"><table id="roundsTable">
+      <thead><tr><th>Data</th><th>Gara</th><th>Circolo</th><th>Stbl</th><th>Score</th><th>Diff.</th><th>Index</th><th>Conta</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <p class="note">✓ = tra i migliori 8 degli ultimi 20 differenziali. Colonna Index = index dopo la gara. NP = non partito, NR = no return, RIT = ritirato.</p>
+  </div>
+</section>
+
+</main>
+<script>
+// ============ DATI: caricati dall'API (login FIG) ============
+let PLAYER = { nome: '—', tessera: '' };
+let FIG_DATA = [];
+let COURSE_DB = [];
+
+// ============ MOTORE WHS (2024-2027) ============
+const WHS = {
+  scoreDifferential(ags, cr, slope, pcc = 0) { return Math.round(((113 / slope) * (ags - cr - pcc)) * 10) / 10; },
+  selectionTable(n) {
+    if (n <= 3) return { use: 1, adj: -2 }; if (n === 4) return { use: 1, adj: -1 };
+    if (n === 5) return { use: 1, adj: 0 }; if (n === 6) return { use: 2, adj: -1 };
+    if (n <= 8) return { use: 2, adj: 0 }; if (n <= 11) return { use: 3, adj: 0 };
+    if (n <= 14) return { use: 4, adj: 0 }; if (n <= 16) return { use: 5, adj: 0 };
+    if (n <= 18) return { use: 6, adj: 0 }; if (n === 19) return { use: 7, adj: 0 };
+    return { use: 8, adj: 0 };
+  },
+  handicapIndex(diffs, lowHI = null) {
+    if (!diffs || diffs.length < 3) return null;
+    const recent = diffs.slice(0, 20);
+    const { use, adj } = this.selectionTable(recent.length);
+    const best = [...recent].sort((a, b) => a - b).slice(0, use);
+    let hi = best.reduce((s, d) => s + d, 0) / use + adj;
+    hi = Math.round(hi * 10) / 10;
+    if (lowHI !== null && !isNaN(lowHI)) {
+      const sl = +lowHI + 3.0; if (hi > sl) hi = sl + (hi - sl) * 0.5;
+      const hl = +lowHI + 5.0; if (hi > hl) hi = hl;
+      hi = Math.round(hi * 10) / 10;
+    }
+    return Math.min(hi, 54.0);
+  },
+  courseHandicap(hi, slope, cr, par) { return Math.round(hi * (slope / 113) + (cr - par)); },
+  playingHandicap(ch, pct) { return Math.round(ch * pct / 100); }
+};
+
+// ============ STATO ============
+const KEY = 'claret_v2';
+let S = { results: null, lastSync: null };
+function save() { /* dati sempre da FIG, nessuna persistenza locale */ }
+const $ = id => document.getElementById(id);
+function results() { return S.results || FIG_DATA; }
+function parseDate(d) { const [g,m,a]=d.split('/'); return `${a}-${m}-${g}`; }
+function sortedResults() { return [...results()].sort((a,b)=>parseDate(b.d).localeCompare(parseDate(a.d))); }
+function diffRows() { return sortedResults().filter(r => r.sd !== '' && !isNaN(+r.sd)); }
+function officialHI() { const r = sortedResults().find(r => r.inw !== ''); return r ? +r.inw : null; }
+function lowHI365() {
+  const now = new Date(parseDate(sortedResults()[0].d));
+  const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 365);
+  const idx = sortedResults().filter(r => r.inw !== '' && new Date(parseDate(r.d)) >= cutoff).map(r => +r.inw);
+  return idx.length ? Math.min(...idx) : null;
+}
+
+// ============ NAVIGAZIONE ============
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  ['dash','play','sim','rounds'].forEach(t => $('tab-' + t).classList.toggle('hidden', t !== b.dataset.tab));
+});
+
+// ============ DASHBOARD ============
+let trendRange = 'all';
+function periodCutoff() {
+  if (trendRange === 'all') return null;
+  const now = new Date();
+  if (trendRange === 'ytd') return new Date(now.getFullYear(), 0, 1);
+  const c = new Date(now); c.setMonth(c.getMonth() - (+trendRange)); return c;
+}
+function inPeriod(r) { const c = periodCutoff(); return !c || new Date(parseDate(r.d)) >= c; }
+function renderDash() {
+  const hi = officialHI();
+  $('whoami').textContent = PLAYER.nome + ' · Tessera ' + PLAYER.tessera;
+  $('hiVal').textContent = hi !== null ? hi.toFixed(1) : '–';
+  const calc = WHS.handicapIndex(diffRows().map(r=>+r.sd));
+  $('hiNote').textContent = 'Ultimo aggiornamento FIG: ' + (S.lastSync || PLAYER.aggiornato) + (calc!==null ? ' · Best 8/20 calcolato: ' + calc.toFixed(1) : '');
+  // statistiche del periodo selezionato
+  const period = sortedResults().filter(r => r.f && inPeriod(r));
+  $('stRounds').textContent = period.length;
+  const sds = period.filter(r => r.sd !== '' && !isNaN(+r.sd)).map(r => +r.sd);
+  $('stBest').textContent = sds.length ? Math.min(...sds).toFixed(1) : '–';
+  const idx = period.filter(r => r.inw !== '').map(r => +r.inw);
+  $('stLow').textContent = idx.length ? Math.min(...idx).toFixed(1) : '–';
+  if (idx.length >= 1) {
+    const oldest = period.filter(r => r.inw !== '').slice(-1)[0];
+    const start = oldest.io !== '' && !isNaN(+oldest.io) ? +oldest.io : +oldest.inw;
+    const end = idx[0];
+    const d = end - start;
+    $('stTrend').innerHTML = `<span class="${d<=0?'down':'up'}">${d>0?'+':''}${d.toFixed(1)}</span>`;
+  } else $('stTrend').textContent = '–';
+  renderTrend(); renderLast();
+}
+function renderTrend() {
+  let pts = sortedResults().filter(r=>r.inw!=='' && inPeriod(r)).map(r=>({date:parseDate(r.d), hi:+r.inw})).reverse();
+  const el = $('trend');
+  if (pts.length < 2) { el.innerHTML='<p class="note">Nessuna gara nel periodo selezionato.</p>'; return; }
+  const W=700,H=140,P=26;
+  const min=Math.min(...pts.map(p=>p.hi)), max=Math.max(...pts.map(p=>p.hi));
+  const y=v=>H-P-(max===min?.5:(v-min)/(max-min))*(H-2*P);
+  const x=i=>P+i*(W-2*P)/(pts.length-1);
+  const path=pts.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+','+y(p.hi).toFixed(1)).join(' ');
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <path d="${path}" fill="none" stroke="#1d43c8" stroke-width="2"/>
+    <text x="${P}" y="12" font-size="11" fill="#667">${max.toFixed(1)}</text>
+    <text x="${P}" y="${H-4}" font-size="11" fill="#667">${min.toFixed(1)}</text>
+    <text x="${W-150}" y="12" font-size="11" fill="#132d80" font-weight="bold">da ${pts[0].hi.toFixed(1)} a ${pts[pts.length-1].hi.toFixed(1)}</text>
+  </svg>`;
+}
+function renderLast() {
+  const rows = sortedResults().filter(r=>r.f).slice(0,6);
+  $('lastRounds').innerHTML = '<table>' + rows.map(r =>
+    `<tr><td>${r.d}</td><td>${r.g.slice(0,26)}</td><td>${r.club}</td><td><b>${r.stbl||'–'}</b> pt</td>
+     <td>${r.va!==''&&+r.va!==0 ? `<span class="${+r.va<0?'down':'up'}">${+r.va>0?'+':''}${r.va}</span>` : '='}</td></tr>`).join('') + '</table>';
+}
+
+// ============ RICERCA CAMPI ============
+function setupSearch(inputId, suggId, areaId, onPick) {
+  const inp = $(inputId), sugg = $(suggId);
+  inp.addEventListener('input', () => {
+    const q = inp.value.trim().toLowerCase();
+    if (q.length < 2) { sugg.classList.add('hidden'); return; }
+    const hits = COURSE_DB.filter(c => c.name.toLowerCase().includes(q)).slice(0, 12);
+    sugg.innerHTML = hits.map((c,i)=>`<div data-n="${c.name.replace(/"/g,'&quot;')}">${c.name} <span style="color:#999;font-size:.75rem">(${c.courses.length} percorsi)</span></div>`).join('') || '<div>Nessun risultato</div>';
+    sugg.classList.remove('hidden');
+    [...sugg.children].forEach(el => el.onclick = () => {
+      const club = COURSE_DB.find(c=>c.name===el.dataset.n); if(!club) return;
+      inp.value = club.name; sugg.classList.add('hidden'); onPick(club);
+    });
+  });
+  document.addEventListener('click', e => { if (!inp.contains(e.target) && !sugg.contains(e.target)) sugg.classList.add('hidden'); });
+}
+function courseSelector(areaId, club, onTee) {
+  const area = $(areaId);
+  const pid = areaId + '_p';
+  area.innerHTML = `<label>Percorso</label><select id="${pid}">` +
+    club.courses.map((c,i)=>`<option value="${i}">${c.name}</option>`).join('') + `</select><div id="${areaId}_tees"></div>`;
+  const renderTees = () => {
+    const co = club.courses[+$(pid).value];
+    $(areaId+'_tees').innerHTML = '<label>Tee</label><div class="pill-row">' +
+      co.tees.map((t,i)=>`<span class="pill" data-i="${i}">${t[0]} · CR ${t[1]} · SR ${t[2]}</span>`).join('') + '</div>';
+    [...$(areaId+'_tees').querySelectorAll('.pill')].forEach(p => p.onclick = () => {
+      [...$(areaId+'_tees').querySelectorAll('.pill')].forEach(x=>x.classList.remove('sel'));
+      p.classList.add('sel');
+      const t = co.tees[+p.dataset.i];
+      onTee({ club: club.name, course: co.name, tee: t[0], cr: t[1], slope: t[2], par: t[3] });
+    });
+  };
+  $(pid).onchange = renderTees; renderTees();
+}
+
+// ============ HCP DI GIOCO ============
+let playSel = null;
+setupSearch('playSearch','playSugg','playCourseArea', club => {
+  courseSelector('playCourseArea', club, sel => { playSel = sel; calcPlaying(); });
+});
+$('playAllow') && ($('playAllow').onchange = () => playSel && calcPlaying());
+function calcPlaying() {
+  const hi = +$('playHI').value;
+  if (!playSel || isNaN(hi)) return;
+  const ch = WHS.courseHandicap(hi, playSel.slope, playSel.cr, playSel.par);
+  const ph = WHS.playingHandicap(ch, +$('playAllow').value);
+  const pct = +$('playAllow').value;
+  $('playRes').classList.remove('hidden');
+  $('playRes').innerHTML = `<div class="big">${ph}</div><div class="sub">colpi che ricevi · ${playSel.club} – ${playSel.course} · tee ${playSel.tee}</div>
+    <div class="note">Course Handicap <b>${ch}</b>${pct!==100?` → Playing Handicap <b>${ph}</b> con riduzione di gara al ${pct}%`:''} · CR ${playSel.cr} · Slope ${playSel.slope} · Par ${playSel.par} · HI ${hi.toFixed(1)}</div>`;
+}
+function toggleManual(){ $('manualArea').classList.toggle('hidden'); }
+function calcManual() {
+  const hi=+$('playHI').value, cr=+$('mCR').value, slope=+$('mSlope').value, par=+$('mPar').value;
+  if (isNaN(hi)||!cr||!slope||!par) { alert('Compila HI, CR, Slope e Par'); return; }
+  const ch = WHS.courseHandicap(hi, slope, cr, par);
+  const ph = WHS.playingHandicap(ch, +$('playAllow').value);
+  $('playRes').classList.remove('hidden');
+  $('playRes').innerHTML = `<div class="big">${ph}</div><div class="sub">Playing Handicap (manuale)</div>
+    <div class="note">Course Handicap <b>${ch}</b> · CR ${cr} · Slope ${slope} · Par ${par}</div>`;
+}
+
+// ============ SIMULATORE ============
+let simSel = null;
+setupSearch('simSearch','simSugg','simCourseArea', club => {
+  courseSelector('simCourseArea', club, sel => { simSel = sel; });
+});
+function runSim() {
+  if (!simSel) { alert('Scegli campo, percorso e tee'); return; }
+  if (simSel.par < 54) { alert('Per la simulazione scegli un percorso 18 buche'); return; }
+  const stbl = +$('simStbl').value;
+  if (!stbl) { alert('Inserisci i punti Stableford previsti'); return; }
+  const diffs = diffRows().map(r=>+r.sd);
+  const hiNow = officialHI();
+  const low = lowHI365();
+  const ch = WHS.courseHandicap(hiNow, simSel.slope, simSel.cr, simSel.par);
+  const ph = ch; // nelle gare individuali FIG il playing handicap è il 100% del course handicap
+  const ags = simSel.par + ph + 36 - stbl;   // formula WHS da Stableford
+  const newDiff = WHS.scoreDifferential(ags, simSel.cr, simSel.slope, 0);
+  const newHI = WHS.handicapIndex([newDiff, ...diffs].slice(0,20), low);
+  let html = `<div class="big">${newHI!==null?newHI.toFixed(1):'–'}</div><div class="sub">Handicap Index stimato dopo il giro</div>
+    <div class="note">Con <b>${stbl}</b> punti: score rettificato <b>${ags}</b> · differenziale <b>${newDiff.toFixed(1)}</b>`;
+  if (hiNow !== null && newHI !== null) {
+    const d = newHI - hiNow;
+    html += ` · Variazione: <b class="${d<0?'down':'up'}">${d>0?'+':''}${d.toFixed(1)}</b>`;
+    html += `<br>Qui giochi con Playing Handicap <b>${ph}</b> (Course Handicap ${ch})`;
+    let target = null;
+    for (let s = 54; s >= 18; s--) {
+      const a = simSel.par + ph + 36 - s;
+      const nd = WHS.scoreDifferential(a, simSel.cr, simSel.slope, 0);
+      const h = WHS.handicapIndex([nd, ...diffs].slice(0,20), low);
+      if (h !== null && h < hiNow) target = s; else if (target !== null && h >= hiNow) break;
+    }
+    if (target !== null) html += `<br>Per abbassare l'index servono <b>${target}</b> punti Stableford o più`;
+    else html += `<br>Su questo campo nessun risultato realistico abbassa subito l'index`;
+  }
+  html += `</div>`;
+  $('simRes').classList.remove('hidden');
+  $('simRes').innerHTML = html;
+}
+
+// ============ RISULTATI ============
+function renderRounds() {
+  const rows = sortedResults().filter(r=>r.f);
+  const dr = diffRows().slice(0,20);
+  const { use } = WHS.selectionTable(Math.min(dr.length,20)||3);
+  const bestSet = new Set(dr.map((r,i)=>[+r.sd,i]).sort((a,b)=>a[0]-b[0]).slice(0,use).map(x=>dr[x[1]]));
+  const clubs = [...new Set(rows.map(r=>r.club))].sort();
+  const years = [...new Set(rows.map(r=>r.d.split('/')[2]))].sort().reverse();
+  if ($('fClub').options.length === 1) {
+    $('fClub').innerHTML = '<option value="">Tutti</option>' + clubs.map(c=>`<option>${c}</option>`).join('');
+    $('fYear').innerHTML = '<option value="">Tutti</option>' + years.map(y=>`<option>${y}</option>`).join('');
+    $('fClub').onchange = renderRounds; $('fYear').onchange = renderRounds;
+  }
+  const fc = $('fClub').value, fy = $('fYear').value;
+  const filtered = rows.filter(r => (!fc || r.club===fc) && (!fy || r.d.endsWith(fy)));
+  $('roundsTable').querySelector('tbody').innerHTML = filtered.map(r => {
+    const counts = bestSet.has(r);
+    return `<tr><td style="white-space:nowrap">${r.d}</td><td>${r.g.slice(0,30)}</td><td>${r.club}</td>
+      <td>${r.stbl||'–'}</td><td>${r.ags&&+r.ags?r.ags:'–'}</td><td><b>${r.sd!==''?(+r.sd).toFixed(1):'–'}</b></td>
+      <td>${r.inw!==''?(+r.inw).toFixed(1):'–'}</td>
+      <td>${counts?'<span class="tag count">✓</span>':'<span class="tag no">–</span>'}</td></tr>`;
+  }).join('');
+}
+
+// ============ INIT ============
+function renderAll() { renderDash(); renderRounds(); const hi=officialHI(); if(hi!==null) $('playHI').value = hi.toFixed(1); }
+// ============ BOOT: carica i dati dell'utente ============
+async function boot() {
+  try {
+    const r = await fetch('/api/data');
+    if (r.status === 401) { location.href = '/'; return; }
+    const d = await r.json();
+    PLAYER = { nome: d.player.name || 'Tesserato FIG', tessera: d.player.tessera || '', aggiornato: new Date().toLocaleDateString('it-IT') };
+    FIG_DATA = d.results;
+    COURSE_DB = d.courses;
+    S = { results: null, lastSync: PLAYER.aggiornato };
+    renderAll();
+    document.querySelectorAll('#trendRange .pill').forEach(p => p.onclick = () => {
+      document.querySelectorAll('#trendRange .pill').forEach(x=>x.classList.remove('sel'));
+      p.classList.add('sel'); trendRange = p.dataset.r; renderDash();
+    });
+  } catch (e) {
+    document.body.innerHTML = '<p style="padding:40px;text-align:center;font-family:sans-serif">Errore nel caricamento dei dati. <a href="/">Torna al login</a></p>';
+  }
+}
+document.getElementById('logoutBtn').onclick = async (e) => { e.preventDefault(); await fetch('/api/logout',{method:'POST'}); location.href='/'; };
+boot();
+</script>
+</body>
+</html>

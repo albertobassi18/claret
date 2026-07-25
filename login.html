@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claret – Accedi</title>
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="%231d43c8"/><text x="8" y="48" font-family="Georgia,serif" font-size="46" fill="white">C</text><rect x="36" y="12" width="2" height="34" fill="white"/><polygon points="38,12 56,17 38,23" fill="%231b7a3d"/></svg>'>
+<style>
+  :root{ --serif:'Didot','Bodoni MT',Georgia,'Times New Roman',serif; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;background:#1d43c8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;color:#16204a}
+  .card{background:#fff;border-radius:20px;max-width:400px;width:100%;padding:36px 30px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .logo{text-align:center;margin-bottom:6px}
+  .logo svg{height:88px}
+  .word{font-family:var(--serif);font-size:2rem;letter-spacing:.36em;text-indent:.36em;text-align:center;color:#132d80}
+  .tric{height:3px;width:120px;margin:8px auto 4px;background:linear-gradient(90deg,#1b7a3d 0 33%,#fff 33% 66%,#ce2b37 66% 100%);border-radius:2px}
+  .sub{text-align:center;color:#5a6486;font-size:.82rem;margin-bottom:26px}
+  label{display:block;font-size:.76rem;color:#5a6486;margin:14px 0 4px;font-weight:600}
+  input{width:100%;padding:12px;border:1px solid #d9e0f3;border-radius:10px;font-size:1rem}
+  input:focus{outline:none;border-color:#1d43c8}
+  button{width:100%;margin-top:22px;background:#1d43c8;color:#fff;border:none;border-radius:10px;padding:13px;font-size:1rem;font-weight:700;cursor:pointer}
+  button:disabled{opacity:.6}
+  .err{background:#fdecee;color:#ce2b37;font-size:.82rem;padding:10px 12px;border-radius:8px;margin-top:14px;display:none}
+  .note{font-size:.72rem;color:#8a92ad;text-align:center;margin-top:20px;line-height:1.5}
+  .spin{display:none;text-align:center;color:#5a6486;font-size:.85rem;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <svg viewBox="0 0 112 118" xmlns="http://www.w3.org/2000/svg">
+      <defs><clipPath id="pen"><polygon points="66,20 104,31 66,44"/></clipPath></defs>
+      <text x="2" y="92" font-family="Didot,'Bodoni MT',Georgia,serif" font-size="102" fill="#132d80">C</text>
+      <path d="M28 98 Q 66 84 104 96 Q 84 110 46 106 Q 32 104 28 98 Z" fill="#1b7a3d"/>
+      <ellipse cx="66" cy="97" rx="7" ry="2.4" fill="#132d80"/>
+      <rect x="64.4" y="20" width="3" height="77" rx="1.5" fill="#132d80"/>
+      <g clip-path="url(#pen)"><rect x="66" y="18" width="13" height="28" fill="#1b7a3d"/><rect x="79" y="18" width="13" height="28" fill="#fff" stroke="#eee" stroke-width=".5"/><rect x="92" y="18" width="13" height="28" fill="#ce2b37"/></g>
+    </svg>
+  </div>
+  <div class="word">CLARET</div>
+  <div class="tric"></div>
+  <div class="sub">Il tuo handicap WHS, sempre con te</div>
+
+  <form id="loginForm">
+    <label>Numero tessera FIG</label>
+    <input id="username" inputmode="numeric" autocomplete="username" placeholder="es. 123456" required>
+    <label>Password area riservata</label>
+    <input id="password" type="password" autocomplete="current-password" placeholder="La tua password Federgolf" required>
+    <button type="submit" id="btn">Accedi</button>
+    <div class="err" id="err"></div>
+    <div class="spin" id="spin">Accesso e download dei tuoi dati in corso…</div>
+  </form>
+
+  <div class="note">Usi le stesse credenziali dell'<a href="https://areariservata.federgolf.it" target="_blank">area riservata Federgolf</a>. Claret non salva la tua password: la usa solo per scaricare i tuoi risultati.</div>
+</div>
+<script>
+const f = document.getElementById('loginForm');
+f.onsubmit = async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('btn'), err = document.getElementById('err'), spin = document.getElementById('spin');
+  err.style.display = 'none'; btn.disabled = true; spin.style.display = 'block';
+  try {
+    const r = await fetch('/api/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: document.getElementById('username').value, password: document.getElementById('password').value })
+    });
+    const d = await r.json();
+    if (r.ok && d.ok) { location.href = '/app'; return; }
+    throw new Error(d.error || 'Accesso non riuscito.');
+  } catch (ex) {
+    err.textContent = ex.message; err.style.display = 'block';
+  } finally { btn.disabled = false; spin.style.display = 'none'; }
+};
+</script>
+</body>
+</html>
