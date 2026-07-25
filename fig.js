@@ -65,12 +65,19 @@ export async function login(username, password) {
   const redirectedOk = (p.status === 302 || p.status === 303) && !/login/i.test(loc);
   if (redirectedOk) return jar;
 
+  const txt = await p.text().catch(() => '');
   // Alcune risposte tornano 200: controlla se siamo dentro
-  if (p.status === 200) {
-    const txt = await p.text().catch(() => '');
-    if (/Home\/Logout|areariservata|Lista Funzioni/i.test(txt)) return jar;
+  if (p.status === 200 && /Home\/Logout|Lista Funzioni|Anagrafica tesserati/i.test(txt)) return jar;
+
+  // --- Diagnostica dettagliata (temporanea) per capire cosa risponde la FIG ---
+  if (p.status === 400) {
+    throw new Error('DIAG: la FIG ha risposto 400 (richiesta rifiutata a monte, non è la password). Header ancora insufficienti.');
   }
-  throw new Error('Credenziali non valide. Controlla numero tessera e password dell\'area riservata FIG.');
+  if (p.status === 200 && /Credenziali non valide/i.test(txt)) {
+    const gotCookies = Object.keys(jar).join(',') || 'nessuno';
+    throw new Error('DIAG: 200 con "Credenziali non valide". Cookie di sessione ottenuti dal GET: [' + gotCookies + ']. Se sono giusti, il POST non riceve la sessione.');
+  }
+  throw new Error('DIAG: risposta inattesa status=' + p.status + ' location="' + loc + '" primi100="' + txt.slice(0, 100).replace(/\s+/g, ' ') + '"');
 }
 
 // Scarica la griglia risultati completa e la trasforma nel formato usato dall'app.
