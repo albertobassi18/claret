@@ -124,6 +124,10 @@
       <div class="stat"><div class="v" id="stTrend">–</div><div class="l">Variazione index</div></div>
     </div>
   </div>
+  <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+    <div><b>Hai giocato una gara?</b><div class="note">Aggiungila per aggiornare il tuo handicap</div></div>
+    <button class="btn" style="margin:0" onclick="goAddRound()">\u2795 Aggiungi gara</button>
+  </div>
   <div class="card">
     <h2>Andamento Handicap Index</h2>
     <div id="trend"></div>
@@ -190,21 +194,8 @@
 <!-- ===== RISULTATI ===== -->
 <section id="tab-rounds" class="hidden">
   <div class="card">
-    <h2>Importa / aggiorna lo storico dalla FIG</h2>
-    <ol class="ov-steps">
-      <li>Apri <a href="https://areariservata.federgolf.it/Risultati/ShowGrid" target="_blank">i tuoi Risultati Federgolf</a> e accedi.</li>
-      <li>In fondo scegli <b>1000</b> righe, poi <b>Cmd/Ctrl+A</b> e <b>Cmd/Ctrl+C</b>.</li>
-      <li>Torna qui e tocca <b>Incolla e importa</b>.</li>
-    </ol>
-    <button class="btn" onclick="importClipboard('impMsg', null)">📋 Incolla e importa</button>
-    <span class="note" id="impMsg" style="display:block;margin-top:6px"></span>
-    <details style="margin-top:10px"><summary class="note" style="cursor:pointer">non funziona? incolla a mano</summary>
-      <textarea id="impBox" placeholder="Incolla qui i tuoi risultati..."></textarea>
-      <button class="btn secondary" onclick="importHistory()">Importa il testo</button>
-    </details>
-  </div>
-  <div class="card">
     <h2>Aggiungi una gara</h2>
+    <p class="note" style="margin-top:0">Ogni volta che giochi, aggiungila qui: Claret aggiorna il tuo handicap con le regole WHS. Nessun dato esce dal tuo dispositivo.</p>
     <label>Cerca il circolo</label>
     <div class="search-wrap">
       <input id="addSearch" placeholder="es. Robinie..." autocomplete="off">
@@ -216,8 +207,7 @@
       <div><label>Punti Stableford</label><input type="number" id="addStbl" min="0" max="60" placeholder="es. 34"></div>
     </div>
     <button class="btn" onclick="addRound()">Aggiungi gara</button>
-    <span class="note" id="addMsg"></span>
-    <p class="note">Inserisci i punti Stableford e il campo: Claret calcola score, differenziale e nuovo indice con le regole WHS. Nessun dato esce dal tuo dispositivo.</p>
+    <span class="note" id="addMsg" style="margin-left:8px"></span>
   </div>
   <div class="card">
     <h2>Le tue gare</h2>
@@ -229,7 +219,20 @@
       <thead><tr><th>Data</th><th>Circolo</th><th>Stbl</th><th>Score</th><th>Diff.</th><th>Index</th><th></th></tr></thead>
       <tbody></tbody>
     </table></div>
-    <p class="note">✓ = tra i migliori 8 degli ultimi 20 differenziali (quelli che formano l'indice). Index = stima dopo la gara.</p>
+    <p class="note">\u2713 = tra i migliori 8 degli ultimi 20 differenziali (quelli che formano l'indice).</p>
+  </div>
+  <div class="card">
+    <h2>Aggiorna lo storico dalla FIG</h2>
+    <p class="note" style="margin-top:0">Per riportare (o aggiornare) tutte le tue gare ufficiali in un colpo solo:</p>
+    <ol class="ov-steps">
+      <li>Apri <a href="https://areariservata.federgolf.it/Risultati/ShowGrid" target="_blank">i tuoi Risultati Federgolf</a> e accedi.</li>
+      <li>In fondo scegli <b>1000</b> righe, seleziona tutto (<b>Cmd/Ctrl+A</b>) e copia (<b>Cmd/Ctrl+C</b>).</li>
+      <li>Torna qui e incolla nel riquadro: si importa da solo.</li>
+    </ol>
+    <a class="btn secondary" href="https://areariservata.federgolf.it/Risultati/ShowGrid" target="_blank" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">Apri Federgolf \u2197</a>
+    <textarea id="impBox" placeholder="Incolla qui (Cmd/Ctrl+V) i risultati copiati da Federgolf"></textarea>
+    <button class="btn secondary" style="width:100%" onclick="importHistory()">Importa</button>
+    <span class="note" id="impMsg" style="display:block;margin-top:6px"></span>
   </div>
 </section>
 
@@ -250,20 +253,18 @@
     </div>
 
     <div id="ovImport" class="hidden">
-      <h2>Importa le tue gare</h2>
+      <h2 style="text-align:center;border:0">Importa i tuoi dati</h2>
+      <p class="note" style="margin-top:0;text-align:center">Handicap ufficiale + tutte le tue gare. Una volta sola, ~2 minuti.</p>
       <ol class="ov-steps">
-        <li>Tocca <b>Apri Federgolf</b> e accedi.</li>
-        <li>In fondo alla pagina scegli <b>1000</b> righe, poi premi <b>Cmd/Ctrl+A</b> e <b>Cmd/Ctrl+C</b>.</li>
-        <li>Torna qui e tocca <b>Incolla e importa</b>.</li>
+        <li>Tocca <b>Apri Federgolf</b> e accedi con le tue credenziali.</li>
+        <li>In fondo alla pagina scegli <b>1000</b> righe.</li>
+        <li>Seleziona tutto (<b>Cmd/Ctrl+A</b>) e copia (<b>Cmd/Ctrl+C</b>).</li>
+        <li>Torna qui e incolla nel riquadro: si importa da solo.</li>
       </ol>
-      <a class="btn secondary" href="https://areariservata.federgolf.it/Risultati/ShowGrid" target="_blank" style="display:block;width:100%;text-align:center;text-decoration:none;box-sizing:border-box">Apri Federgolf ↗</a>
-      <button class="btn" style="width:100%" onclick="importClipboard('ovImpMsg', ovImportDone)">📋 Incolla e importa</button>
+      <a class="btn" href="https://areariservata.federgolf.it/Risultati/ShowGrid" target="_blank" style="display:block;width:100%;text-align:center;text-decoration:none;box-sizing:border-box">Apri Federgolf \u2197</a>
+      <textarea id="ovImpBox" placeholder="Incolla qui (Cmd/Ctrl+V)"></textarea>
       <span class="note" id="ovImpMsg" style="display:block;text-align:center"></span>
-      <details style="margin-top:10px"><summary class="note" style="cursor:pointer">non funziona? incolla a mano</summary>
-        <textarea id="ovImpBox" placeholder="Incolla qui i tuoi risultati..."></textarea>
-        <button class="btn secondary" style="width:100%" onclick="ovImport()">Importa il testo</button>
-      </details>
-      <p class="note" style="text-align:center">oppure <a href="#" onclick="ovGo('quick');return false">inserisci solo il tuo handicap</a></p>
+      <p class="note" style="text-align:center;margin-top:10px">Non hai gare federali? <a href="#" onclick="ovGo('quick');return false">inserisci solo il tuo handicap</a></p>
     </div>
   </div>
 </div>
@@ -656,6 +657,18 @@ function saveProfile() {
 
 // ============ INIT ============
 function renderAll() { renderDash(); renderRounds(); const hi=officialHI(); if(hi!==null && $('playHI')) $('playHI').value = hi.toFixed(1); }
+function goAddRound() {
+  const b = document.querySelector('nav button[data-tab="rounds"]'); if (b) b.click();
+  setTimeout(()=>{ const s=$('addSearch'); if(s){ s.scrollIntoView({behavior:'smooth',block:'center'}); s.focus(); } }, 120);
+}
+// Import automatico appena incolli nel riquadro (metodo universale, nessun permesso richiesto)
+[['ovImpBox','ovImpMsg',true],['impBox','impMsg',false]].forEach(([id,msg,isOnb]) => {
+  const el = document.getElementById(id); if (!el) return;
+  el.addEventListener('paste', () => setTimeout(() => {
+    const ok = importFromText(el.value||'', msg, isOnb?ovImportDone:null);
+    if (ok) el.value = '';
+  }, 60));
+});
 setupSearch('addSearch','addSugg','addCourseArea', club => {
   courseSelector('addCourseArea', club, sel => { addSel = sel; });
 });
