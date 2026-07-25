@@ -206,8 +206,14 @@
       <div><label>Data</label><input type="date" id="addDate"></div>
       <div><label>Punti Stableford</label><input type="number" id="addStbl" min="0" max="60" placeholder="es. 34"></div>
     </div>
+    <label>Tipo di gara</label>
+    <select id="addFormat">
+      <option value="ind">Individuale — conta per l'handicap</option>
+      <option value="team">A coppie / squadra — di norma non conta</option>
+    </select>
     <button class="btn" onclick="addRound()">Aggiungi gara</button>
     <span class="note" id="addMsg" style="margin-left:8px"></span>
+    <p class="note" id="teamNote" style="display:none">Le gare a coppie/squadra di norma non aggiornano l'handicap: la registro nello storico ma non nel calcolo. Eccezione: un four-ball può contare se la gara è registrata dal circolo come qualificante — in quel caso il valore arriverà correttamente quando reimporti da FIG.</p>
   </div>
   <div class="card">
     <h2>Le tue gare</h2>
@@ -296,10 +302,30 @@ const WHS = {
       const hl = +lowHI + 5.0; if (hi > hl) hi = hl;
       hi = Math.round(hi * 10) / 10;
     }
-    return Math.min(hi, 54.0);
+    return Math.max(-10.0, Math.min(hi, 54.0));
   },
   courseHandicap(hi, slope, cr, par) { return Math.round(hi * (slope / 113) + (cr - par)); },
-  playingHandicap(ch, pct) { return Math.round(ch * pct / 100); }
+  playingHandicap(ch, pct) { return Math.round(ch * pct / 100); },
+  // Differenziale atteso per le 9 buche non giocate (approssima la tabella WHS Expected Score Differential,
+  // validata sui dati FIG reali: HI 20.2 -> ~11.8, gara reale sd 22.0)
+  expectedSD9(hi) { return 0.56 * hi + 0.6; },
+  // Da una gara inserita a Stableford ricava score, handicap di gioco e differenziale (18-buche-equivalente),
+  // gestendo correttamente sia 18 sia 9 buche col metodo ufficiale WHS.
+  roundFromStableford(hi, cr, slope, par, stbl) {
+    const holes = par < 54 ? 9 : 18;
+    if (holes === 18) {
+      const ch = Math.round(hi * (slope / 113) + (cr - par));
+      const ags = par + ch + 36 - stbl;
+      const sd = Math.round((113 / slope) * (ags - cr) * 10) / 10;
+      return { holes, ch, ags, sd };
+    } else {
+      const ch = Math.round((hi / 2) * (slope / 113) + (cr - par)); // handicap di gioco su 9 buche
+      const ags = par + ch + 18 - stbl;                             // base 18 punti per 9 buche
+      const sd9 = (113 / slope) * (ags - cr);
+      const sd = Math.round((sd9 + this.expectedSD9(hi)) * 10) / 10; // combinazione a 18 buche
+      return { holes, ch, ags, sd };
+    }
+  }
 };
 
 // ============ STATO (locale) ============
@@ -315,9 +341,13 @@ function computeRows() {
   const rounds = [...S.rounds].sort((a,b)=>parseDate(a.d).localeCompare(parseDate(b.d)));
   const out = []; const diffs = [];
   for (const r of rounds) {
-    const sd = (r.sd!=null && r.sd!=='') ? +r.sd
-      : (r.ags!=null && r.ags!=='' ? WHS.scoreDifferential(+r.ags, +r.cr, +r.slope, 0) : null);
-    if (sd!=null && +r.par >= 54) diffs.unshift(sd); // solo 18 buche nel pool per il simulatore
+    let sd = r.noHcp ? null
+      : (r.sd!=null && r.sd!=='') ? +r.sd
+      : (r.inw==null && r.stbl!=null && r.stbl!=='' && r.cr && r.slope && r.par && S.currentHI!=null
+          ? WHS.roundFromStableford(+S.currentHI, +r.cr, +r.slope, +r.par, +r.stbl).sd
+          : (r.ags!=null && r.ags!=='' ? WHS.scoreDifferential(+r.ags, +r.cr, +r.slope, 0) : null));
+    if (sd!=null && isNaN(sd)) sd = null;
+    if (sd!=null) diffs.unshift(sd); // tutti i differenziali validi (9 e 18 buche), come la FIG
     const last20 = diffs.slice(0,20);
     const io = (r.io!=null && r.io!=='') ? +r.io
       : (out.length ? (+out[out.length-1].inw||null) : (S.currentHI!=null ? +S.currentHI : null));
@@ -329,10 +359,10 @@ function computeRows() {
       inw = WHS.handicapIndex(last20, lows.length?Math.min(...lows):null);
     } else inw = io;
     const va = (r.va!=null && r.va!=='') ? +r.va : ((inw!=null && io!=null) ? Math.round((inw-io)*10)/10 : 0);
-    out.push({ d:r.d, g:r.course||'Gara', club:r.club, giro:'1', f:'SPS', b:(+r.par>=54?'18':'9'), v:'S',
+    out.push({ d:r.d, g:r.course||'Gara', club:r.club, giro:'1', f:'SPS', b:((r.holes||(+r.par>=54?18:9))==18?'18':'9'), v:'S',
       ph:String(r.ph!=null?r.ph:''), par:String(r.par), cr:String(r.cr), sr:String(r.slope),
       stbl:String(r.stbl!=null?r.stbl:''), ags:String(r.ags!=null?r.ags:''), pcc:'0',
-      sd: sd!=null?(+sd).toFixed(1):'', io: io!=null?(+io).toFixed(1):'', inw: inw!=null?(+inw).toFixed(1):'', va:(+va).toFixed(1) });
+      sd: sd!=null?(+sd).toFixed(1):'', io: io!=null?(+io).toFixed(1):'', inw: inw!=null?(+inw).toFixed(1):'', va:(+va).toFixed(1), noHcp: !!r.noHcp });
   }
   return out;
 }
@@ -487,27 +517,24 @@ setupSearch('simSearch','simSugg','simCourseArea', club => {
 });
 function runSim() {
   if (!simSel) { alert('Scegli campo, percorso e tee'); return; }
-  if (simSel.par < 54) { alert('Per la simulazione scegli un percorso 18 buche'); return; }
   const stbl = +$('simStbl').value;
-  if (!stbl) { alert('Inserisci i punti Stableford previsti'); return; }
+  if (!stbl && stbl !== 0) { alert('Inserisci i punti Stableford previsti'); return; }
   const diffs = diffRows().map(r=>+r.sd);
   const hiNow = officialHI();
   const low = lowHI365();
-  const ch = WHS.courseHandicap(hiNow, simSel.slope, simSel.cr, simSel.par);
-  const ph = ch; // nelle gare individuali FIG il playing handicap è il 100% del course handicap
-  const ags = simSel.par + ph + 36 - stbl;   // formula WHS da Stableford
-  const newDiff = WHS.scoreDifferential(ags, simSel.cr, simSel.slope, 0);
+  const rr = WHS.roundFromStableford(hiNow, simSel.cr, simSel.slope, simSel.par, stbl);
+  const ch = rr.ch, newDiff = rr.sd;
   const newHI = WHS.handicapIndex([newDiff, ...diffs].slice(0,20), low);
   let html = `<div class="big">${newHI!==null?newHI.toFixed(1):'–'}</div><div class="sub">Handicap Index stimato dopo il giro</div>
-    <div class="note">Con <b>${stbl}</b> punti: score rettificato <b>${ags}</b> · differenziale <b>${newDiff.toFixed(1)}</b>`;
+    <div class="note">Con <b>${stbl}</b> punti${rr.holes===9?' (9 buche)':''}: differenziale <b>${newDiff.toFixed(1)}</b>`;
   if (hiNow !== null && newHI !== null) {
     const d = newHI - hiNow;
     html += ` · Variazione: <b class="${d<0?'down':'up'}">${d>0?'+':''}${d.toFixed(1)}</b>`;
-    html += `<br>Qui giochi con Playing Handicap <b>${ph}</b> (Course Handicap ${ch})`;
+    html += `<br>Qui giochi con handicap di gioco <b>${ch}</b>`;
     let target = null;
-    for (let s = 54; s >= 18; s--) {
-      const a = simSel.par + ph + 36 - s;
-      const nd = WHS.scoreDifferential(a, simSel.cr, simSel.slope, 0);
+    const maxPts = rr.holes === 9 ? 30 : 54;
+    for (let s = maxPts; s >= 0; s--) {
+      const nd = WHS.roundFromStableford(hiNow, simSel.cr, simSel.slope, simSel.par, s).sd;
       const h = WHS.handicapIndex([nd, ...diffs].slice(0,20), low);
       if (h !== null && h < hiNow) target = s; else if (target !== null && h >= hiNow) break;
     }
@@ -537,10 +564,11 @@ function renderRounds() {
   tb.innerHTML = filtered.map(r => {
     const counts = bestSet.has(r);
     const rid = (S.rounds.find(x=>x.d===r.d && String(x.ags)===r.ags && x.club===r.club)||{}).id || '';
-    return `<tr><td style="white-space:nowrap">${r.d}</td><td>${r.club}</td>
-      <td>${r.stbl}</td><td>${r.ags}</td><td><b>${(+r.sd).toFixed(1)}</b></td>
+    const club = r.noHcp ? r.club + ' <span class="tag no" title="Gara a coppie/squadra: non conta per l\'handicap">coppia</span>' : r.club;
+    return `<tr><td style="white-space:nowrap">${r.d}</td><td>${club}</td>
+      <td>${r.stbl||'–'}</td><td>${r.ags&&+r.ags?r.ags:'–'}</td><td><b>${r.sd!==''?(+r.sd).toFixed(1):'–'}</b></td>
       <td>${r.inw!==''?(+r.inw).toFixed(1):'–'}</td>
-      <td>${counts?'<span class="tag count">✓</span>':'<span class="tag no">–</span>'} <span style="color:#ce2b37;cursor:pointer;margin-left:8px" onclick="delRound('${rid}')">✕</span></td></tr>`;
+      <td>${r.noHcp?'':(counts?'<span class="tag count">✓</span>':'<span class="tag no">–</span>')} <span style="color:#ce2b37;cursor:pointer;margin-left:8px" onclick="delRound('${rid}')">✕</span></td></tr>`;
   }).join('');
 }
 
@@ -553,13 +581,20 @@ function addRound() {
   const date = $('addDate').value;
   if (!date) { alert('Inserisci la data della gara.'); return; }
   if (isNaN(stbl)) { alert('Inserisci i punti Stableford.'); return; }
-  const ch = WHS.courseHandicap(S.currentHI, addSel.slope, addSel.cr, addSel.par);
-  const ags = addSel.par + ch + 36 - stbl;
+  const isTeam = $('addFormat') && $('addFormat').value === 'team';
   const [y,m,d] = date.split('-');
-  S.rounds.push({ id: Date.now()+'-'+Math.random().toString(36).slice(2,6), d: `${d}/${m}/${y}`,
-    club: addSel.club, course: addSel.course, tee: addSel.tee, cr: addSel.cr, slope: addSel.slope, par: addSel.par, stbl, ags, ph: ch });
+  const base = { id: Date.now()+'-'+Math.random().toString(36).slice(2,6), d: `${d}/${m}/${y}`,
+    club: addSel.club, course: addSel.course, tee: addSel.tee, cr: addSel.cr, slope: addSel.slope, par: addSel.par,
+    holes: (addSel.par < 54 ? 9 : 18), stbl };
+  if (isTeam) {
+    S.rounds.push({ ...base, noHcp: true });
+  } else {
+    const rr = WHS.roundFromStableford(S.currentHI, addSel.cr, addSel.slope, addSel.par, stbl);
+    S.rounds.push({ ...base, holes: rr.holes, ags: rr.ags, ph: rr.ch, sd: rr.sd });
+  }
   save();
   addSel = null; $('addSearch').value = ''; $('addCourseArea').innerHTML = ''; $('addStbl').value = '';
+  if ($('addFormat')) { $('addFormat').value = 'ind'; if ($('teamNote')) $('teamNote').style.display='none'; }
   $('addMsg').textContent = 'Gara aggiunta \u2713';
   setTimeout(()=>{ $('addMsg').textContent=''; }, 2500);
   renderAll();
@@ -673,6 +708,7 @@ setupSearch('addSearch','addSugg','addCourseArea', club => {
   courseSelector('addCourseArea', club, sel => { addSel = sel; });
 });
 if ($('addDate')) $('addDate').valueAsDate = new Date();
+if ($('addFormat')) $('addFormat').onchange = () => { if ($('teamNote')) $('teamNote').style.display = $('addFormat').value==='team' ? 'block' : 'none'; };
 document.querySelectorAll('#trendRange .pill').forEach(p => p.onclick = () => {
   document.querySelectorAll('#trendRange .pill').forEach(x=>x.classList.remove('sel'));
   p.classList.add('sel'); trendRange = p.dataset.r; renderDash();
