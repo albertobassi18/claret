@@ -55,6 +55,8 @@
   .hidden { display: none; }
   .overlay { position: fixed; inset: 0; background: rgba(19,45,128,.55); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
   .overlay.hidden { display: none; }
+  .alert-warn { border:1px solid #f0c36d; background:#fff8e8; color:#6b4e00; }
+  .alert-warn .note { color:#7a5b00; }
   .badge { display:inline-flex; align-items:center; gap:7px; background:var(--green-light); border:1px solid var(--border); border-radius:12px; padding:9px 13px; font-size:.82rem; font-weight:700; color:var(--green); margin:5px 5px 0 0; }
   .badge .bi { font-size:1.15rem; }
   .badge.locked { background:#f4f6fb; color:#9aa3bd; border-color:#e6e9f3; }
@@ -115,6 +117,7 @@
     <div class="lbl">Handicap Index FIG</div>
     <div class="note" id="hiNote"></div>
   </div>
+  <div class="card alert-warn hidden" id="dropWarn"></div>
   <div class="card">
     <h2>Aggiungi una gara</h2>
     <p class="note" style="margin-top:0">Ogni volta che giochi, aggiungila qui: Claret aggiorna il tuo handicap con le regole WHS. Nessun dato esce dal tuo dispositivo.</p>
@@ -483,6 +486,28 @@ function renderDash() {
     const d = end - start;
     $('stTrend').innerHTML = `<span class="${d<=0?'down':'up'}">${d>0?'+':''}${d.toFixed(1)}</span>`;
   } else $('stTrend').textContent = '–';
+  // Avviso: un buon risultato sta per uscire dagli ultimi 20 (conta per l'handicap)
+  const w = $('dropWarn');
+  if (w) {
+    const dr = diffRows();                 // gare valide, dalla più recente
+    w.classList.add('hidden');
+    if (dr.length >= 20) {
+      const win = dr.slice(0, 20);
+      const sds = win.map(r => +r.sd);
+      const oldest = win[19];              // il più vecchio dei 20: esce con la prossima gara
+      const best8 = [...sds].sort((a,b)=>a-b).slice(0, 8);
+      const soglia = best8[best8.length - 1];
+      if (+oldest.sd <= soglia) {          // l'uscente è tra i migliori 8 -> tiene giù l'handicap
+        const curIdx = officialHI();
+        const worst = WHS.handicapIndex([99, ...sds.slice(0, 19)], lowHI365());
+        const salita = (curIdx != null && worst != null && worst > curIdx + 0.05);
+        w.classList.remove('hidden');
+        w.innerHTML = '<b>⚠️ La prossima gara conta doppio</b>'
+          + '<div class="note" style="margin-top:4px">Un tuo buon risultato sta per uscire dagli ultimi 20 (SD <b>' + (+oldest.sd).toFixed(1) + '</b> · ' + oldest.club + ' · ' + oldest.d + '): oggi tiene giù il tuo handicap. Con un buon punteggio lo rimpiazzi'
+          + (salita ? ', altrimenti l\'handicap può salire fino a <b>' + worst.toFixed(1) + '</b>' : '') + '.</div>';
+      }
+    }
+  }
   renderTrend(); renderLast();
 }
 function renderTrend() {
