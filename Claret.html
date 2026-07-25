@@ -599,6 +599,8 @@ function importFromText(txt, msgId, onDone) {
   const manual = S.rounds.filter(r => !String(r.id||'').startsWith('imp-'));
   const seen = new Set(rows.map(key));
   S.rounds = rows.concat(manual.filter(r => !seen.has(key(r))));
+  const cur = rows.find(r => r.inw != null);
+  if (cur) S.currentHI = +cur.inw;
   save();
   if (msgId) $(msgId).textContent = 'Importate ' + rows.length + ' gare. Handicap ufficiale attivo.';
   renderAll();
@@ -662,7 +664,7 @@ document.querySelectorAll('#trendRange .pill').forEach(p => p.onclick = () => {
   document.querySelectorAll('#trendRange .pill').forEach(x=>x.classList.remove('sel'));
   p.classList.add('sel'); trendRange = p.dataset.r; renderDash();
 });
-if (S.currentHI == null) openProfile(true); else renderAll();
+if (S.currentHI == null && (!S.rounds || S.rounds.length === 0)) openProfile(true); else renderAll();
 </script>
 </body>
 </html>
