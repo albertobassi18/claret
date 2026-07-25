@@ -7,6 +7,20 @@ import { parse } from 'node-html-parser';
 
 const BASE = 'https://areariservata.federgolf.it';
 
+// Header che imitano una vera navigazione da browser: il server FIG rifiuta (400)
+// le richieste che non li includono.
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+const NAV_HEADERS = {
+  'User-Agent': UA,
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'it-IT,it;q=0.9',
+  'Upgrade-Insecure-Requests': '1',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'same-origin',
+  'Sec-Fetch-User': '?1'
+};
+
 // Estrae i cookie da una risposta e li accumula in un oggetto {nome: valore}
 function collectCookies(res, jar) {
   const raw = res.headers.getSetCookie ? res.headers.getSetCookie() : [];
@@ -21,42 +35,24 @@ function cookieHeader(jar) {
   return Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
 }
 
-// Login: legge il form della pagina di login (campi + antiforgery token a runtime),
-// poi invia le credenziali. Ritorna il cookie jar autenticato oppure lancia un errore.
+// Login: la pagina FIG costruisce il form via JavaScript e invia le credenziali
+// (campi User / Password) in POST a /Home/AuthenticateUser. Non c'è antiforgery token.
+// Facciamo prima un GET per ottenere il cookie di sessione, poi il POST.
 export async function login(username, password) {
   const jar = {};
-  // 1. GET pagina login → cookie iniziali + token antiforgery + nomi campi
-  const g = await fetch(`${BASE}/Home/Login`, { redirect: 'manual', headers: { 'User-Agent': 'ClaretGolf/1.0' } });
+  // 1. GET pagina login → cookie di sessione
+  const g = await fetch(`${BASE}/Home/Login`, { redirect: 'manual', headers: { ...NAV_HEADERS, 'Sec-Fetch-Site': 'none' } });
   collectCookies(g, jar);
-  const html = await g.text();
-  const doc = parse(html);
-  const form = doc.querySelector('form');
-  if (!form) throw new Error('Pagina di login non riconosciuta (la FIG potrebbe aver cambiato il sito).');
 
-  // Raccoglie tutti gli input del form (compreso __RequestVerificationToken se presente)
-  const body = new URLSearchParams();
-  for (const inp of form.querySelectorAll('input')) {
-    const name = inp.getAttribute('name');
-    if (name) body.append(name, inp.getAttribute('value') || '');
-  }
-  // Individua i campi utente/password in modo tollerante
-  const fieldNames = [...form.querySelectorAll('input')].map(i => i.getAttribute('name')).filter(Boolean);
-  const userField = fieldNames.find(n => /user|utente|login|tessera|username/i.test(n)) || 'Username';
-  const passField = fieldNames.find(n => /pass|pwd/i.test(n)) || 'Password';
-  body.set(userField, username);
-  body.set(passField, password);
-
-  const action = form.getAttribute('action') || '/Home/Login';
-  const postUrl = action.startsWith('http') ? action : BASE + action;
-
-  // 2. POST credenziali
-  const p = await fetch(postUrl, {
+  // 2. POST credenziali all'endpoint reale, imitando una navigazione da form
+  const body = new URLSearchParams({ returnUrl: '', User: username, Password: password });
+  const p = await fetch(`${BASE}/Home/AuthenticateUser`, {
     method: 'POST',
     redirect: 'manual',
     headers: {
+      ...NAV_HEADERS,
       'Content-Type': 'application/x-www-form-urlencoded',
       'Cookie': cookieHeader(jar),
-      'User-Agent': 'ClaretGolf/1.0',
       'Origin': BASE,
       'Referer': `${BASE}/Home/Login`
     },
@@ -64,28 +60,29 @@ export async function login(username, password) {
   });
   collectCookies(p, jar);
 
-  // Login riuscito se ci ridirige fuori dalla pagina di login (redirect 302 verso area riservata)
   const loc = p.headers.get('location') || '';
-  const ok = (p.status === 302 || p.status === 303) && !/login/i.test(loc);
-  if (!ok) {
-    // ricontrolla: alcune configurazioni tornano 200 con la home
+  // Login riuscito = redirect verso l'area riservata (non di nuovo verso la login)
+  const redirectedOk = (p.status === 302 || p.status === 303) && !/login/i.test(loc);
+  if (redirectedOk) return jar;
+
+  // Alcune risposte tornano 200: controlla se siamo dentro
+  if (p.status === 200) {
     const txt = await p.text().catch(() => '');
     if (/Home\/Logout|areariservata|Lista Funzioni/i.test(txt)) return jar;
-    throw new Error('Credenziali non valide o accesso rifiutato dalla Federazione.');
   }
-  return jar;
+  throw new Error('Credenziali non valide. Controlla numero tessera e password dell\'area riservata FIG.');
 }
 
 // Scarica la griglia risultati completa e la trasforma nel formato usato dall'app.
 export async function fetchResults(jar) {
   // Imposta pagesize alto e prende la pagina
-  await fetch(`${BASE}/Risultati/ShowGrid`, { headers: { 'Cookie': cookieHeader(jar), 'User-Agent': 'ClaretGolf/1.0' } });
+  await fetch(`${BASE}/Risultati/ShowGrid`, { headers: { 'Cookie': cookieHeader(jar), 'User-Agent': UA } });
   const res = await fetch(`${BASE}/Risultati/Paging`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
       'Cookie': cookieHeader(jar),
-      'User-Agent': 'ClaretGolf/1.0',
+      'User-Agent': UA,
       'X-Requested-With': 'XMLHttpRequest'
     },
     body: new URLSearchParams({ pagesize: '1000', page: '1' }).toString()
@@ -116,7 +113,7 @@ export function parseResults(html) {
 // Nome del tesserato (per la testata)
 export async function fetchProfile(jar) {
   try {
-    const r = await fetch(`${BASE}/areariservata`, { headers: { 'Cookie': cookieHeader(jar), 'User-Agent': 'ClaretGolf/1.0' } });
+    const r = await fetch(`${BASE}/areariservata`, { headers: { 'Cookie': cookieHeader(jar), 'User-Agent': UA } });
     const doc = parse(await r.text());
     const name = doc.querySelector('.user-name, .username, h1, h2')?.text?.trim();
     return { name: name || 'Tesserato FIG' };
