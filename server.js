@@ -18,6 +18,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 
+// Cartella dei file HTML: 'public' se esiste, altrimenti la radice del progetto.
+// (Rende il server robusto se i file sono stati caricati senza la sottocartella.)
+const WEB = fs.existsSync(path.join(__dirname, 'public', 'login.html'))
+  ? path.join(__dirname, 'public')
+  : __dirname;
+
 // Database campi (statico, dal calcolatore pubblico Federgolf)
 const COURSE_DB = JSON.parse(fs.readFileSync(path.join(__dirname, 'campi.json'), 'utf8'));
 
@@ -38,7 +44,7 @@ function currentSession(req) {
 // --- Homepage: login ---
 app.get('/', (req, res) => {
   if (currentSession(req)) return res.redirect('/app');
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+  res.sendFile(path.join(WEB, 'login.html'));
 });
 
 // --- POST login: usa le credenziali, scarica i dati, crea la sessione ---
@@ -68,7 +74,7 @@ app.post('/api/logout', (req, res) => {
 // --- App protetta ---
 app.get('/app', (req, res) => {
   if (!currentSession(req)) return res.redirect('/');
-  res.sendFile(path.join(__dirname, 'public', 'app.html'));
+  res.sendFile(path.join(WEB, 'app.html'));
 });
 
 // --- Dati dell'utente loggato ---
