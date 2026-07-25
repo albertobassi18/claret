@@ -13,7 +13,9 @@
     --grass: #1b7a3d; --serif: 'Didot', 'Bodoni MT', Georgia, 'Times New Roman', serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { overflow-x: hidden; max-width: 100%; }
   body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); }
+  main table { max-width: 100%; }
   header { background: #1d43c8; color: #fff; padding: 18px 20px 14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
   .brand { display:flex; align-items:center; gap:12px; }
   .brand svg { height: 46px; width: auto; display:block; }
@@ -580,9 +582,9 @@ function renderTrend() {
 }
 function renderLast() {
   const rows = sortedResults().filter(r=>r.f).slice(0,6);
-  $('lastRounds').innerHTML = '<table>' + rows.map(r =>
+  $('lastRounds').innerHTML = '<div style="overflow-x:auto"><table>' + rows.map(r =>
     `<tr><td>${r.d}</td><td>${r.g.slice(0,26)}</td><td>${r.club}</td><td><b>${r.stbl||'–'}</b> pt</td>
-     <td>${r.va!==''&&+r.va!==0 ? `<span class="${+r.va<0?'down':'up'}">${+r.va>0?'+':''}${r.va}</span>` : '='}</td></tr>`).join('') + '</table>';
+     <td>${r.va!==''&&+r.va!==0 ? `<span class="${+r.va<0?'down':'up'}">${+r.va>0?'+':''}${r.va}</span>` : '='}</td></tr>`).join('') + '</table></div>';
 }
 
 // ============ RICERCA CAMPI ============
