@@ -146,8 +146,8 @@
       <span class="pill" data-r="ytd">YTD</span>
     </div>
     <div class="stat-grid">
-      <div class="stat"><div class="v" id="stRounds">0</div><div class="l">Gare</div></div>
-      <div class="stat"><div class="v" id="stBest">–</div><div class="l">Miglior diff.</div></div>
+      <div class="stat"><div class="v" id="stRounds">0</div><div class="l">Gare valide</div></div>
+      <div class="stat"><div class="v" id="stBest">–</div><div class="l">Miglior SD</div></div>
       <div class="stat"><div class="v" id="stLow">–</div><div class="l">Low index</div></div>
       <div class="stat"><div class="v" id="stTrend">–</div><div class="l">Variazione index</div></div>
     </div>
@@ -224,10 +224,10 @@
       <div><label>Anno</label><select id="fYear"><option value="">Tutti</option></select></div>
     </div>
     <div style="overflow-x:auto; max-height: 60vh; margin-top:10px"><table id="roundsTable">
-      <thead><tr><th>Data</th><th>Circolo</th><th>Stbl</th><th>Score</th><th>Diff.</th><th>Index</th><th></th></tr></thead>
+      <thead><tr><th>Data</th><th>Circolo</th><th>Stbl</th><th>Score</th><th>SD</th><th>Index</th><th></th></tr></thead>
       <tbody></tbody>
     </table></div>
-    <p class="note">\u2713 = tra i migliori 8 degli ultimi 20 differenziali (quelli che formano l'indice).</p>
+    <p class="note">\u2713 = tra i migliori 8 SD degli ultimi 20 (le SD che formano l'indice).</p>
   </div>
   <div class="card">
     <h2>Aggiorna lo storico dalla FIG</h2>
@@ -459,13 +459,14 @@ function renderDash() {
   $('hiVal').textContent = hi !== null ? hi.toFixed(1) : '–';
   const rows = sortedResults();
   const imported = rows.some(r => r.inw !== '') && S.rounds.some(r => String(r.id||'').startsWith('imp-'));
-  if (imported) $('hiNote').innerHTML = 'Handicap Index ufficiale FIG · ' + rows.length + ' gare importate';
+  const validAll = rows.filter(r => r.sd !== '' && !isNaN(+r.sd) && !r.noHcp).length;
+  if (imported) $('hiNote').innerHTML = 'Handicap Index ufficiale FIG · ' + validAll + ' gare valide su ' + rows.length + ' importate';
   else if (S.rounds.length >= 3) $('hiNote').innerHTML = 'Andamento stimato su ' + Math.min(S.rounds.length,20) + ' gare inserite';
   else $('hiNote').innerHTML = 'Importa il tuo storico (tab Risultati) per l\'handicap ufficiale, oppure aggiungi le gare a mano';
   // statistiche del periodo selezionato
-  const period = sortedResults().filter(r => r.f && inPeriod(r));
+  const period = sortedResults().filter(r => r.sd !== '' && !isNaN(+r.sd) && !r.noHcp && inPeriod(r));
   $('stRounds').textContent = period.length;
-  const sds = period.filter(r => r.sd !== '' && !isNaN(+r.sd)).map(r => +r.sd);
+  const sds = period.map(r => +r.sd);
   $('stBest').textContent = sds.length ? Math.min(...sds).toFixed(1) : '–';
   const idx = period.filter(r => r.inw !== '').map(r => +r.inw);
   $('stLow').textContent = idx.length ? Math.min(...idx).toFixed(1) : '–';
@@ -579,7 +580,7 @@ function runSim() {
   const ch = rr.ch, newDiff = rr.sd;
   const newHI = WHS.handicapIndex([newDiff, ...diffs].slice(0,20), low);
   let html = `<div class="big">${newHI!==null?newHI.toFixed(1):'–'}</div><div class="sub">Handicap Index stimato dopo il giro</div>
-    <div class="note">Con <b>${stbl}</b> punti${rr.holes===9?' (9 buche)':''}: differenziale <b>${newDiff.toFixed(1)}</b>`;
+    <div class="note">Con <b>${stbl}</b> punti${rr.holes===9?' (9 buche)':''}: SD <b>${newDiff.toFixed(1)}</b>`;
   if (hiNow !== null && newHI !== null) {
     const d = newHI - hiNow;
     html += ` · Variazione: <b class="${d<0?'down':'up'}">${d>0?'+':''}${d.toFixed(1)}</b>`;
@@ -756,6 +757,7 @@ function renderStats() {
   const c18 = cnt.filter(r => +r.cr >= 50);   // 18 buche: CR affidabile (9 buche ~30-38)
   const idxRows = rows.filter(r => r.inw !== '');
   const cur = officialHI();
+  const yNow = String(new Date().getFullYear());
 
   if (!cnt.length && !idxRows.length) {
     ['stRecord','stBadge','stPerf','stCampi','stAttiv'].forEach(id => $(id).innerHTML = '<p class="note">Aggiungi o importa qualche gara per vedere le statistiche.</p>');
@@ -811,8 +813,8 @@ function renderStats() {
   $('stPerf').innerHTML = '<div class="stat-grid">'
     + statBox(avgStbl != null ? avgStbl.toFixed(1) : '–', 'Media Stableford')
     + statBox(inHcp != null ? inHcp + '%' : '–', 'Gare in handicap')
-    + statBox(avg20 != null ? avg20.toFixed(1) : '–', 'Media diff. (20)')
-    + statBox(avgAll != null ? avgAll.toFixed(1) : '–', 'Media diff. (sempre)')
+    + statBox(avg20 != null ? avg20.toFixed(1) : '–', 'Media SD (20)')
+    + statBox(avgAll != null ? avgAll.toFixed(1) : '–', 'Media SD (sempre)')
     + '</div>'
     + `<p class="note">Costanza (ultimi 20 giri): <b>${cons}</b>. "Gare in handicap" = quelle da 36+ punti.</p>`;
 
@@ -830,7 +832,7 @@ function renderStats() {
     + statBox(cnt.length, 'Gare valide')
     + '</div>';
   if (most) campi += `<p class="note">Campo più giocato: <b>${most.club}</b> (${most.n} gare).</p>`;
-  if (best) campi += `<p class="note">Dove giochi meglio: <b>${best.club}</b> (differenziale medio ${best.avg.toFixed(1)}).</p>`;
+  if (best) campi += `<p class="note">Dove giochi meglio: <b>${best.club}</b> (SD media ${best.avg.toFixed(1)}).</p>`;
   if (worst && (!best || worst.club !== best.club)) campi += `<p class="note">Dove soffri di più: <b>${worst.club}</b> (media ${worst.avg.toFixed(1)}).</p>`;
   $('stCampi').innerHTML = campi;
 
@@ -863,7 +865,7 @@ function renderStats() {
     }).join('');
     att += '</div><div style="display:flex;gap:6px;margin-top:5px">' + years.map(y=>`<div style="flex:1;text-align:center" class="l">${y}</div>`).join('') + '</div></div>';
   }
-  if (bestMonth) att += `<p class="note">Giochi meglio a <b>${MESI[bestMonth.m-1]}</b> (differenziale medio ${bestMonth.avg.toFixed(1)}).</p>`;
+  if (bestMonth) att += `<p class="note">Giochi meglio a <b>${MESI[bestMonth.m-1]}</b> (SD media ${bestMonth.avg.toFixed(1)}).</p>`;
   $('stAttiv').innerHTML = att;
 }
 
