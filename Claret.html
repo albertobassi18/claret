@@ -20,22 +20,30 @@
   .brand .word { font-family: var(--serif); font-weight: 400; font-size: 1.55rem; letter-spacing: .38em; text-indent: .38em; line-height: 1.1; }
   .brand .tric { margin-top: 4px; height: 3px; width: 100%; background: linear-gradient(90deg, #1b7a3d 0 33%, #fff 33% 66%, #ce2b37 66% 100%); border-radius: 2px; }
   header .who { font-size: .78rem; opacity: .9; }
-  nav { display: flex; background: #132d80; overflow-x: auto; position: sticky; top: 0; z-index: 10; }
-  nav button { flex: 1; min-width: 86px; background: none; border: none; color: #b9c6f2; padding: 12px 6px; font-size: .8rem; cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }
-  nav button.active { color: #fff; font-weight: 700; border-bottom-color: #fff; }
-  main { max-width: 780px; margin: 0 auto; padding: 14px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  nav { display: flex; background: #fff; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+  nav button { flex: 1; min-width: 64px; background: none; border: none; color: var(--muted); padding: 10px 4px; font-size: .72rem; cursor: pointer; border-bottom: 2px solid transparent; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  nav button svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  nav button.active { color: var(--blue); font-weight: 600; border-bottom-color: var(--blue); }
+  main { max-width: 780px; margin: 0 auto; padding: 16px 14px; }
+  @media (max-width: 640px) {
+    nav { position: fixed; top: auto; bottom: 0; left: 0; right: 0; border-top: 1px solid var(--border); border-bottom: none; box-shadow: 0 -1px 10px rgba(20,32,74,.06); }
+    nav button { border-bottom: none; font-size: .62rem; padding: 7px 3px calc(7px + env(safe-area-inset-bottom)); }
+    nav button.active { border-bottom: none; }
+    main { padding-bottom: 80px; }
+  }
+  .card { background: var(--card); border: 1px solid #e7ecf7; border-radius: 16px; padding: 18px; margin-bottom: 14px; }
   .card h2 { font-family: var(--serif); font-size: 1.05rem; font-weight: 400; letter-spacing: .08em; color: var(--green); margin-bottom: 10px; text-transform: uppercase; }
-  .hi-big { text-align: center; padding: 22px 16px; }
-  .hi-big .val { font-size: 3.6rem; font-weight: 800; color: var(--green); line-height: 1; }
+  .hi-big { text-align: center; padding: 28px 16px 24px; }
+  .hi-big .val { font-size: 4.4rem; font-weight: 800; color: var(--blue); line-height: 1; letter-spacing: -1px; }
   .hi-big .lbl { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 6px; }
   .row { display: flex; gap: 10px; flex-wrap: wrap; }
   .row > * { flex: 1; min-width: 120px; }
   label { display: block; font-size: .74rem; color: var(--muted); margin: 8px 0 3px; }
   input, select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: .95rem; background: #fff; }
   textarea { width: 100%; min-height: 90px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: .8rem; font-family: monospace; }
-  button.btn { background: var(--green-mid); color: #fff; border: none; border-radius: 8px; padding: 11px 18px; font-size: .95rem; font-weight: 600; cursor: pointer; margin-top: 12px; }
-  button.btn.secondary { background: #e8e8e8; color: var(--text); }
+  button.btn { background: var(--blue); color: #fff; border: none; border-radius: 12px; padding: 13px 18px; font-size: .98rem; font-weight: 600; cursor: pointer; margin-top: 12px; }
+  button.btn:active { transform: scale(.98); }
+  button.btn.secondary { background: #eef1f8; color: var(--text); }
   .result-box { background: var(--green-light); border-radius: 10px; padding: 14px; margin-top: 14px; text-align: center; }
   .result-box .big { font-size: 2.2rem; font-weight: 800; color: var(--green); }
   .result-box .sub { font-size: .8rem; color: var(--muted); }
@@ -121,11 +129,11 @@
   <div class="who" id="whoami">—</div>
 </header>
 <nav>
-  <button data-tab="dash" class="active">Handicap</button>
-  <button data-tab="play">HCP di gioco</button>
-  <button data-tab="sim">Simulatore</button>
-  <button data-tab="rounds">Risultati</button>
-  <button data-tab="stats">Statistiche</button>
+  <button data-tab="dash" class="active"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Handicap</button>
+  <button data-tab="play"><svg viewBox="0 0 24 24"><path d="M6 21V4l11 3-11 3"/><path d="M6 21h5"/></svg>Gioco</button>
+  <button data-tab="sim"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>Simula</button>
+  <button data-tab="rounds"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>Gare</button>
+  <button data-tab="stats"><svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V5M19 20v-6"/></svg>Statistiche</button>
 </nav>
 <main>
 
