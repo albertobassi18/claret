@@ -100,6 +100,7 @@
   <button data-tab="play">HCP di gioco</button>
   <button data-tab="sim">Simulatore</button>
   <button data-tab="rounds">Risultati</button>
+  <button data-tab="stats">Statistiche</button>
 </nav>
 <main>
 
@@ -189,9 +190,7 @@
       <button class="btn" onclick="calcManual()">Calcola</button>
     </div>
   </div>
-</section>
-
-<!-- ===== SIMULATORE ===== -->
+PLACEHOLDER_NOULATORE ===== -->
 <section id="tab-sim" class="hidden">
   <div class="card">
     <h2>Simulatore pre-gara</h2>
@@ -237,6 +236,12 @@
     <button class="btn secondary" style="width:100%" onclick="importHistory()">Importa</button>
     <span class="note" id="impMsg" style="display:block;margin-top:6px"></span>
   </div>
+</section>
+<section id="tab-stats" class="hidden">
+  <div class="card"><h2>Record e traguardi</h2><div id="stRecord"></div></div>
+  <div class="card"><h2>Performance</h2><div id="stPerf"></div></div>
+  <div class="card"><h2>Analisi campi</h2><div id="stCampi"></div></div>
+  <div class="card"><h2>Attività nel tempo</h2><div id="stAttiv"></div></div>
 </section>
 
 
@@ -427,7 +432,7 @@ function lowHI365() {
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   document.querySelectorAll('nav button').forEach(x => x.classList.remove('active'));
   b.classList.add('active');
-  ['dash','play','sim','rounds'].forEach(t => $('tab-' + t).classList.toggle('hidden', t !== b.dataset.tab));
+  ['dash','play','sim','rounds','stats'].forEach(t => $('tab-' + t).classList.toggle('hidden', t !== b.dataset.tab));
 });
 
 // ============ DASHBOARD ============
@@ -731,8 +736,122 @@ function saveProfile() {
   renderAll();
 }
 
+
+// ============ STATISTICHE ============
+const MESI = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+function yearOf(r){ return r.d.split('/')[2]; }
+function monthOf(r){ return +r.d.split('/')[1]; }
+function statBox(v,l){ return `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`; }
+function renderStats() {
+  if (!$('stRecord')) return;
+  const rows = sortedResults();
+  const cnt = rows.filter(r => r.sd !== '' && !isNaN(+r.sd) && !r.noHcp);       // gare che contano (9 e 18)
+  const c18 = cnt.filter(r => +r.par >= 54);
+  const idxRows = rows.filter(r => r.inw !== '');
+  const cur = officialHI();
+
+  if (!cnt.length && !idxRows.length) {
+    ['stRecord','stPerf','stCampi','stAttiv'].forEach(id => $(id).innerHTML = '<p class="note">Aggiungi o importa qualche gara per vedere le statistiche.</p>');
+    return;
+  }
+
+  // ---- RECORD E TRAGUARDI ----
+  let rec = '';
+  const lowest = idxRows.length ? idxRows.reduce((a,b)=> +b.inw < +a.inw ? b : a) : null;
+  const bestR = cnt.length ? cnt.reduce((a,b)=> +b.sd < +a.sd ? b : a) : null;
+  const gap = (cur != null && lowest) ? (cur - +lowest.inw) : null;
+  rec += '<div class="stat-grid">'
+    + statBox(lowest ? (+lowest.inw).toFixed(1) : '–', 'Miglior handicap')
+    + statBox(gap != null ? (gap>0?'+':'') + gap.toFixed(1) : '–', 'Dal tuo record')
+    + statBox(bestR ? (+bestR.sd).toFixed(1) : '–', 'Miglior giro')
+    + '</div>';
+  if (bestR) rec += `<p class="note">Miglior giro: <b>${bestR.club}</b> · ${bestR.d} · differenziale ${(+bestR.sd).toFixed(1)}</p>`;
+  if (cur != null) {
+    const nextCat = Math.floor(cur) - (cur % 1 === 0 ? 1 : 0);
+    const dist = cur - (nextCat + 0.9);
+    if (dist > 0.05) rec += `<p class="note">Per passare alla categoria <b>${nextCat}</b> ti manca <b>${dist.toFixed(1)}</b>.</p>`;
+  }
+  const badges = [];
+  if (lowest) [30,25,20,15,10,5].forEach(t => { if (+lowest.inw < t) badges.push('Sotto ' + t); });
+  const yNow = String(new Date().getFullYear());
+  const thisY = cnt.filter(r => yearOf(r) === yNow).length;
+  if (thisY >= 10) badges.push(thisY + ' gare nel ' + yNow);
+  if (cnt.length >= 50) badges.push(cnt.length + ' gare totali');
+  if (badges.length) rec += '<div class="pill-row">' + badges.slice(0,6).map(b => '<span class="pill sel">🏅 ' + b + '</span>').join('') + '</div>';
+  $('stRecord').innerHTML = rec;
+
+  // ---- PERFORMANCE ----
+  let perf = '';
+  const stblRows = c18.filter(r => r.stbl !== '' && !isNaN(+r.stbl));
+  const avgStbl = stblRows.length ? (stblRows.reduce((s,r)=>s+ +r.stbl,0)/stblRows.length) : null;
+  const inHcp = stblRows.length ? Math.round(100 * stblRows.filter(r => +r.stbl >= 36).length / stblRows.length) : null;
+  const last20 = cnt.slice(0,20).map(r=>+r.sd);
+  const avg20 = last20.length ? last20.reduce((a,b)=>a+b,0)/last20.length : null;
+  const avgAll = cnt.length ? cnt.reduce((s,r)=>s+ +r.sd,0)/cnt.length : null;
+  let cons = '–';
+  if (last20.length >= 5) {
+    const m = avg20; const sd = Math.sqrt(last20.reduce((s,x)=>s+(x-m)*(x-m),0)/last20.length);
+    cons = sd < 3 ? 'Molto costante' : sd < 5 ? 'Costante' : 'Altalenante';
+  }
+  perf += '<div class="stat-grid">'
+    + statBox(avgStbl != null ? avgStbl.toFixed(1) : '–', 'Media Stableford')
+    + statBox(inHcp != null ? inHcp + '%' : '–', 'Gare in handicap')
+    + statBox(avg20 != null ? avg20.toFixed(1) : '–', 'Media diff. (20)')
+    + statBox(avgAll != null ? avgAll.toFixed(1) : '–', 'Media diff. (sempre)')
+    + '</div>';
+  perf += `<p class="note">Costanza (ultimi 20 giri): <b>${cons}</b>. "Gare in handicap" = quelle da 36+ punti (giochi al tuo livello o meglio).</p>`;
+  $('stPerf').innerHTML = perf;
+
+  // ---- ANALISI CAMPI ----
+  let campi = '';
+  const byClub = {};
+  cnt.forEach(r => { (byClub[r.club] = byClub[r.club] || []).push(+r.sd); });
+  const clubs = Object.entries(byClub).map(([club, sds]) => ({ club, n: sds.length, avg: sds.reduce((a,b)=>a+b,0)/sds.length }));
+  const enough = clubs.filter(c => c.n >= 3);
+  const best = enough.length ? enough.reduce((a,b)=> b.avg < a.avg ? b : a) : null;
+  const worst = enough.length ? enough.reduce((a,b)=> b.avg > a.avg ? b : a) : null;
+  const most = clubs.length ? clubs.reduce((a,b)=> b.n > a.n ? b : a) : null;
+  campi += '<div class="stat-grid">'
+    + statBox(clubs.length, 'Campi diversi')
+    + statBox(most ? most.n : '–', 'Sul più giocato')
+    + statBox(cnt.length, 'Gare valide')
+    + '</div>';
+  if (most) campi += `<p class="note">Campo più giocato: <b>${most.club}</b> (${most.n} gare, differenziale medio ${most.avg.toFixed(1)}).</p>`;
+  if (best) campi += `<p class="note">Dove giochi meglio: <b>${best.club}</b> (media ${best.avg.toFixed(1)}).</p>`;
+  if (worst && worst.club !== (best&&best.club)) campi += `<p class="note">Dove soffri di più: <b>${worst.club}</b> (media ${worst.avg.toFixed(1)}).</p>`;
+  $('stCampi').innerHTML = campi;
+
+  // ---- ATTIVITÀ NEL TEMPO ----
+  let att = '';
+  const byYear = {};
+  cnt.forEach(r => { byYear[yearOf(r)] = (byYear[yearOf(r)]||0)+1; });
+  const years = Object.keys(byYear).sort();
+  const maxY = Math.max(1, ...Object.values(byYear));
+  const lastY = String(new Date().getFullYear()-1);
+  const n18 = c18.length, n9 = cnt.length - c18.length;
+  // miglior mese
+  const byMonth = {};
+  cnt.forEach(r => { const m=monthOf(r); (byMonth[m]=byMonth[m]||[]).push(+r.sd); });
+  const monthsArr = Object.entries(byMonth).map(([m,sds])=>({m:+m,n:sds.length,avg:sds.reduce((a,b)=>a+b,0)/sds.length})).filter(x=>x.n>=3);
+  const bestMonth = monthsArr.length ? monthsArr.reduce((a,b)=> b.avg<a.avg?b:a) : null;
+  att += '<div class="stat-grid">'
+    + statBox(byYear[yNow]||0, 'Gare quest\'anno')
+    + statBox(byYear[lastY]||0, 'Gare anno scorso')
+    + statBox(n18 + ' / ' + n9, '18 / 9 buche')
+    + '</div>';
+  if (years.length) {
+    att += '<div style="display:flex;align-items:flex-end;gap:8px;height:90px;margin-top:12px">'
+      + years.map(y => {
+          const h = Math.round(70 * byYear[y] / maxY) + 4;
+          return `<div style="flex:1;text-align:center"><div style="background:#1d43c8;border-radius:4px 4px 0 0;height:${h}px"></div><div class="l" style="margin-top:4px">${y.slice(2)}</div><div class="l" style="font-weight:700;color:#132d80">${byYear[y]}</div></div>`;
+        }).join('') + '</div>';
+  }
+  if (bestMonth) att += `<p class="note">Giochi meglio a <b>${MESI[bestMonth.m-1]}</b> (differenziale medio ${bestMonth.avg.toFixed(1)}).</p>`;
+  $('stAttiv').innerHTML = att;
+}
+
 // ============ INIT ============
-function renderAll() { renderDash(); renderRounds(); const hi=officialHI(); if(hi!==null && $('playHI')) $('playHI').value = hi.toFixed(1); }
+function renderAll() { renderDash(); renderRounds(); renderStats(); const hi=officialHI(); if(hi!==null && $('playHI')) $('playHI').value = hi.toFixed(1); }
 function goAddRound() {
   const b = document.querySelector('nav button[data-tab="rounds"]'); if (b) b.click();
   setTimeout(()=>{ const s=$('addSearch'); if(s){ s.scrollIntoView({behavior:'smooth',block:'center'}); s.focus(); } }, 120);
