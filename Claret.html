@@ -111,6 +111,28 @@
     <div class="note" id="hiNote"></div>
   </div>
   <div class="card">
+    <h2>Aggiungi una gara</h2>
+    <p class="note" style="margin-top:0">Ogni volta che giochi, aggiungila qui: Claret aggiorna il tuo handicap con le regole WHS. Nessun dato esce dal tuo dispositivo.</p>
+    <label>Cerca il circolo</label>
+    <div class="search-wrap">
+      <input id="addSearch" placeholder="es. Robinie..." autocomplete="off">
+      <div class="suggestions hidden" id="addSugg"></div>
+    </div>
+    <div id="addCourseArea"></div>
+    <div class="row">
+      <div><label>Data</label><input type="date" id="addDate"></div>
+      <div><label>Punti Stableford</label><input type="number" id="addStbl" min="0" max="60" placeholder="es. 34"></div>
+    </div>
+    <label>Tipo di gara</label>
+    <select id="addFormat">
+      <option value="ind">Individuale — conta per l'handicap</option>
+      <option value="team">A coppie / squadra — di norma non conta</option>
+    </select>
+    <button class="btn" onclick="addRound()">Aggiungi gara</button>
+    <span class="note" id="addMsg" style="margin-left:8px"></span>
+    <p class="note" id="teamNote" style="display:none">Le gare a coppie/squadra di norma non aggiornano l'handicap: la registro nello storico ma non nel calcolo. Eccezione: un four-ball può contare se la gara è registrata dal circolo come qualificante — in quel caso il valore arriverà correttamente quando reimporti da FIG.</p>
+  </div>
+  <div class="card">
     <div class="pill-row" id="trendRange" style="margin:0 0 12px">
       <span class="pill sel" data-r="all">Da sempre</span>
       <span class="pill" data-r="12">12 mesi</span>
@@ -124,10 +146,6 @@
       <div class="stat"><div class="v" id="stLow">–</div><div class="l">Low index</div></div>
       <div class="stat"><div class="v" id="stTrend">–</div><div class="l">Variazione index</div></div>
     </div>
-  </div>
-  <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-    <div><b>Hai giocato una gara?</b><div class="note">Aggiungila per aggiornare il tuo handicap</div></div>
-    <button class="btn" style="margin:0" onclick="goAddRound()">\u2795 Aggiungi gara</button>
   </div>
   <div class="card">
     <h2>Andamento Handicap Index</h2>
@@ -194,28 +212,6 @@
 
 <!-- ===== RISULTATI ===== -->
 <section id="tab-rounds" class="hidden">
-  <div class="card">
-    <h2>Aggiungi una gara</h2>
-    <p class="note" style="margin-top:0">Ogni volta che giochi, aggiungila qui: Claret aggiorna il tuo handicap con le regole WHS. Nessun dato esce dal tuo dispositivo.</p>
-    <label>Cerca il circolo</label>
-    <div class="search-wrap">
-      <input id="addSearch" placeholder="es. Robinie..." autocomplete="off">
-      <div class="suggestions hidden" id="addSugg"></div>
-    </div>
-    <div id="addCourseArea"></div>
-    <div class="row">
-      <div><label>Data</label><input type="date" id="addDate"></div>
-      <div><label>Punti Stableford</label><input type="number" id="addStbl" min="0" max="60" placeholder="es. 34"></div>
-    </div>
-    <label>Tipo di gara</label>
-    <select id="addFormat">
-      <option value="ind">Individuale — conta per l'handicap</option>
-      <option value="team">A coppie / squadra — di norma non conta</option>
-    </select>
-    <button class="btn" onclick="addRound()">Aggiungi gara</button>
-    <span class="note" id="addMsg" style="margin-left:8px"></span>
-    <p class="note" id="teamNote" style="display:none">Le gare a coppie/squadra di norma non aggiornano l'handicap: la registro nello storico ma non nel calcolo. Eccezione: un four-ball può contare se la gara è registrata dal circolo come qualificante — in quel caso il valore arriverà correttamente quando reimporti da FIG.</p>
-  </div>
   <div class="card">
     <h2>Le tue gare</h2>
     <div class="row">
@@ -367,7 +363,9 @@ async function saveCloud() {
 async function loadCloud() {
   try {
     const { data } = await cloud.from('claret_data').select('data').eq('user_id', USER.id).maybeSingle();
-    if (data && data.data) { S = data.data; localStorage.setItem(KEY, JSON.stringify(S)); }
+    if (data && data.data) S = data.data;                       // utente esistente: i suoi dati dal cloud
+    else S = { name: '', currentHI: null, rounds: [] };          // nuovo utente: parte pulito -> mostra l'import
+    localStorage.setItem(KEY, JSON.stringify(S));
   } catch (e) { console.warn('load cloud fallita', e); }
 }
 async function logout() { try { if (cloud) await cloud.auth.signOut(); } catch(e){} location.reload(); }
