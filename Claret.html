@@ -341,11 +341,13 @@ function computeRows() {
   const rounds = [...S.rounds].sort((a,b)=>parseDate(a.d).localeCompare(parseDate(b.d)));
   const out = []; const diffs = [];
   for (const r of rounds) {
+    // Differenziale: valore ufficiale importato se presente; per gare manuali senza sd lo ricavo
+    // dallo Stableford; MAI dal punteggio grezzo (le righe non valide importate hanno ags=0).
     let sd = r.noHcp ? null
       : (r.sd!=null && r.sd!=='') ? +r.sd
       : (r.inw==null && r.stbl!=null && r.stbl!=='' && r.cr && r.slope && r.par && S.currentHI!=null
           ? WHS.roundFromStableford(+S.currentHI, +r.cr, +r.slope, +r.par, +r.stbl).sd
-          : (r.ags!=null && r.ags!=='' ? WHS.scoreDifferential(+r.ags, +r.cr, +r.slope, 0) : null));
+          : null);
     if (sd!=null && isNaN(sd)) sd = null;
     if (sd!=null) diffs.unshift(sd); // tutti i differenziali validi (9 e 18 buche), come la FIG
     const last20 = diffs.slice(0,20);
