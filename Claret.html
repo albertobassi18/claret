@@ -352,7 +352,10 @@
         <label>Numero tessera federale</label>
         <input id="authTessera" type="text" inputmode="numeric" autocomplete="off" placeholder="es. 123456">
         <label>Golf club di appartenenza</label>
-        <input id="authClub" type="text" autocomplete="off" placeholder="es. Carimate">
+        <div class="search-wrap">
+          <input id="authClub" type="text" autocomplete="off" placeholder="Scrivi le prime lettere, es. Carimate">
+          <div class="suggestions hidden" id="authClubSugg"></div>
+        </div>
       </div>
       <label>Email</label>
       <input id="authEmail" type="email" autocomplete="email" placeholder="tuo@email.it">
@@ -393,6 +396,43 @@
       <span class="note" id="ovImpMsg" style="display:block;text-align:center"></span>
       <p class="note" style="text-align:center;margin-top:10px">Non hai gare federali? <a href="#" onclick="ovGo('quick');return false">inserisci solo il tuo handicap</a></p>
     </div>
+  </div>
+</div>
+
+<!-- ===== PROFILO ===== -->
+<div id="profileOverlay" class="overlay hidden" onclick="if(event.target===this)closeProfileFull()">
+  <div class="card ov-card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <h2 style="margin:0;border:0">Il tuo profilo</h2>
+      <button onclick="closeProfileFull()" aria-label="Chiudi" style="background:none;border:none;font-size:1.6rem;line-height:.8;color:var(--muted);cursor:pointer;padding:0">×</button>
+    </div>
+
+    <label>Nome e cognome</label>
+    <input id="pfName" type="text" placeholder="es. Mario Rossi">
+    <label>Email</label>
+    <input id="pfEmail" type="email" disabled style="background:#f4f6fb;color:var(--muted)">
+    <label>Numero tessera federale</label>
+    <input id="pfTessera" type="text" inputmode="numeric" placeholder="es. 123456">
+    <label>Golf club di appartenenza</label>
+    <div class="search-wrap">
+      <input id="pfClub" type="text" autocomplete="off" placeholder="Scrivi le prime lettere, es. Carimate">
+      <div class="suggestions hidden" id="pfClubSugg"></div>
+    </div>
+    <label>Handicap Index</label>
+    <input id="pfHI" type="number" step="0.1" inputmode="decimal" placeholder="es. 23.2">
+    <button class="btn" style="width:100%" onclick="saveProfileFull()">Salva</button>
+    <span class="note" id="pfMsg" style="display:block;text-align:center;margin-top:6px"></span>
+
+    <h2 style="border:0;margin-top:18px">Sicurezza</h2>
+    <label>Nuova password</label>
+    <input id="pfPass" type="password" autocomplete="new-password" placeholder="almeno 6 caratteri">
+    <button class="btn secondary" style="width:100%" onclick="changePassword()">Cambia password</button>
+    <span class="note" id="pfPassMsg" style="display:block;text-align:center;margin-top:6px"></span>
+
+    <h2 style="border:0;margin-top:18px">I tuoi dati</h2>
+    <button class="btn secondary" style="width:100%" onclick="exportData()">Esporta i miei dati</button>
+    <button class="btn" style="width:100%;background:#ce2b37" onclick="deleteMyData()">Elimina i miei dati</button>
+    <p class="note">L'esportazione scarica un file con handicap, gare e profilo. L'eliminazione rimuove i tuoi dati da questo dispositivo e dal cloud: non si può annullare.</p>
   </div>
 </div>
 </main>
@@ -551,7 +591,7 @@ function inPeriod(r) { const c = periodCutoff(); return !c || new Date(parseDate
 function renderDash() {
   const hi = officialHI();
   const who = (S.name ? S.name : (USER ? USER.email : 'Il tuo profilo'));
-  $('whoami').innerHTML = who + ' · <a href="#" onclick="editProfile();return false" style="color:#fff;text-decoration:underline">modifica</a>'
+  $('whoami').innerHTML = who + ' · <a href="#" onclick="openProfileFull();return false" style="color:#fff;text-decoration:underline">profilo</a>'
     + (USER ? ' · <a href="#" onclick="logout();return false" style="color:#fff;text-decoration:underline">esci</a>' : '');
   $('hiVal').textContent = hi !== null ? hi.toFixed(1) : '–';
   const rows = sortedResults();
@@ -867,6 +907,63 @@ async function importClipboard(msgId, onDone) {
   }
 }
 function editProfile() { openProfile(false); }
+// ============ PROFILO ============
+function setupClubSearch(inputId, suggId) {
+  const inp = $(inputId), sugg = $(suggId); if (!inp || !sugg) return;
+  inp.addEventListener('input', () => {
+    const q = inp.value.trim().toLowerCase();
+    if (q.length < 2) { sugg.classList.add('hidden'); return; }
+    const hits = COURSE_DB.filter(c => c.name.toLowerCase().includes(q)).slice(0, 12);
+    sugg.innerHTML = hits.map(c => `<div data-n="${c.name.replace(/"/g,'&quot;')}">${c.name}</div>`).join('') || '<div>Nessun circolo trovato</div>';
+    sugg.classList.remove('hidden');
+    [...sugg.children].forEach(el => el.onclick = () => { if (el.dataset.n) inp.value = el.dataset.n; sugg.classList.add('hidden'); });
+  });
+  document.addEventListener('click', e => { if (!inp.contains(e.target) && !sugg.contains(e.target)) sugg.classList.add('hidden'); });
+}
+function openProfileFull() {
+  $('pfName').value = S.name || '';
+  $('pfEmail').value = USER ? USER.email : '';
+  $('pfTessera').value = S.tessera || '';
+  $('pfClub').value = S.club || '';
+  $('pfHI').value = S.currentHI != null ? S.currentHI : '';
+  $('pfMsg').textContent = ''; $('pfPassMsg').textContent = ''; $('pfPass').value = '';
+  $('profileOverlay').classList.remove('hidden');
+}
+function closeProfileFull() { $('profileOverlay').classList.add('hidden'); }
+async function saveProfileFull() {
+  S.name = ($('pfName').value || '').trim();
+  S.tessera = ($('pfTessera').value || '').trim();
+  S.club = ($('pfClub').value || '').trim();
+  const hi = parseFloat($('pfHI').value);
+  if (!isNaN(hi)) S.currentHI = Math.round(hi * 10) / 10;
+  save();
+  if (cloud && USER) { try { await cloud.auth.updateUser({ data: { full_name: S.name, tessera: S.tessera, club: S.club } }); } catch (e) {} }
+  $('pfMsg').textContent = 'Salvato ✓';
+  renderAll();
+  setTimeout(() => { $('pfMsg').textContent = ''; }, 2000);
+}
+async function changePassword() {
+  const p = $('pfPass').value || '';
+  if (p.length < 6) { $('pfPassMsg').textContent = 'La password deve avere almeno 6 caratteri.'; return; }
+  if (!cloud || !USER) { $('pfPassMsg').textContent = 'Disponibile solo con account online.'; return; }
+  $('pfPassMsg').textContent = 'Attendere…';
+  const { error } = await cloud.auth.updateUser({ password: p });
+  $('pfPassMsg').textContent = error ? ('Errore: ' + error.message) : 'Password aggiornata ✓';
+  if (!error) $('pfPass').value = '';
+}
+function exportData() {
+  const data = JSON.stringify({ profilo: { name: S.name, tessera: S.tessera, club: S.club, currentHI: S.currentHI }, gare: S.rounds }, null, 2);
+  const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+  const a = document.createElement('a'); a.href = url; a.download = 'claret-dati.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function deleteMyData() {
+  if (!confirm('Eliminare tutti i tuoi dati (handicap, gare, profilo) da questo dispositivo e dal cloud? Non si può annullare.')) return;
+  try { if (cloud && USER) await cloud.from('claret_data').delete().eq('user_id', USER.id); } catch (e) {}
+  localStorage.removeItem(KEY);
+  try { if (cloud) await cloud.auth.signOut(); } catch (e) {}
+  location.reload();
+}
 function resetApp() {
   if (!confirm('Vuoi cancellare tutti i dati di Claret su questo dispositivo e ricominciare da zero?')) return;
   localStorage.removeItem(KEY);
@@ -1025,6 +1122,8 @@ function goAddRound() {
 setupSearch('addSearch','addSugg','addCourseArea', club => {
   courseSelector('addCourseArea', club, sel => { addSel = sel; });
 });
+setupClubSearch('authClub','authClubSugg');
+setupClubSearch('pfClub','pfClubSugg');
 if ($('addDate')) $('addDate').valueAsDate = new Date();
 if ($('addFormat')) $('addFormat').onchange = () => { if ($('teamNote')) $('teamNote').style.display = $('addFormat').value==='team' ? 'block' : 'none'; };
 document.querySelectorAll('#trendRange .pill').forEach(p => p.onclick = () => {
