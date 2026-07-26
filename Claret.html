@@ -351,6 +351,10 @@
         <input id="authNome" type="text" autocomplete="given-name" placeholder="es. Mario">
         <label>Cognome</label>
         <input id="authCognome" type="text" autocomplete="family-name" placeholder="es. Rossi">
+        <label>Numero tessera federale</label>
+        <input id="authTessera" type="text" inputmode="numeric" autocomplete="off" placeholder="es. 123456">
+        <label>Golf club di appartenenza</label>
+        <input id="authClub" type="text" autocomplete="off" placeholder="es. Carimate">
       </div>
       <label>Email</label>
       <input id="authEmail" type="email" autocomplete="email" placeholder="tuo@email.it">
@@ -1048,19 +1052,26 @@ function tradErr(m) {
 async function authSubmit() {
   const email = ($('authEmail').value||'').trim(), pass = $('authPass').value||'';
   const nome = ($('authNome').value||'').trim(), cognome = ($('authCognome').value||'').trim();
+  const tessera = ($('authTessera').value||'').trim(), club = ($('authClub').value||'').trim();
   if (!email || !pass) { $('authMsg').textContent = 'Inserisci email e password.'; return; }
   if (authMode === 'signup' && (!nome || !cognome)) { $('authMsg').textContent = 'Inserisci nome e cognome.'; return; }
+  if (authMode === 'signup' && (!tessera || !club)) { $('authMsg').textContent = 'Inserisci numero tessera e golf club.'; return; }
   $('authMsg').textContent = 'Attendere…';
   const fullName = (nome + ' ' + cognome).trim();
   const res = authMode === 'login'
     ? await cloud.auth.signInWithPassword({ email, password: pass })
-    : await cloud.auth.signUp({ email, password: pass, options: { data: { nome, cognome, full_name: fullName } } });
+    : await cloud.auth.signUp({ email, password: pass, options: { data: { nome, cognome, full_name: fullName, tessera, club } } });
   if (res.error) { $('authMsg').textContent = tradErr(res.error.message); return; }
   if (!res.data.session) { $('authMsg').textContent = 'Ti ho inviato una email di conferma: aprila, poi torna qui e accedi.'; return; }
   USER = res.data.user;
   $('authOverlay').classList.add('hidden');
   await loadCloud();
-  if (authMode === 'signup' && fullName) { S.name = fullName; save(); }   // nuovo utente: salva il nome nel profilo
+  if (authMode === 'signup') {   // nuovo utente: salva profilo
+    if (fullName) S.name = fullName;
+    if (tessera) S.tessera = tessera;
+    if (club) S.club = club;
+    save();
+  }
   afterAuth();
 }
 function afterAuth() {
