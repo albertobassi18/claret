@@ -35,6 +35,13 @@
     nav button { border-bottom: none; font-size: .68rem; gap: 4px; padding: 9px 3px; }
     nav button svg { width: 26px; height: 26px; }
     nav button.active { border-bottom: none; }
+    /* Tabella gare: su telefono niente scroll orizzontale, solo colonne essenziali */
+    #roundsTable th:nth-child(4), #roundsTable td:nth-child(4),
+    #roundsTable th:nth-child(6), #roundsTable td:nth-child(6) { display: none; }
+    #roundsTable td:nth-child(2) { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #roundsTable .tag { padding: 2px 6px; font-size: .64rem; }
+    table.mini td:nth-child(2) { display: none; }
+    table.mini td:nth-child(3) { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   }
   .card { background: var(--card); border: 1px solid #e7ecf7; border-radius: 16px; padding: 18px; margin-bottom: 14px; }
   .card h2 { font-family: var(--serif); font-size: 1.05rem; font-weight: 400; letter-spacing: .08em; color: var(--green); margin-bottom: 10px; text-transform: uppercase; }
@@ -59,8 +66,9 @@
   .tag.count { background: var(--green-light); color: var(--green); }
   .tag.no { background: #f0f0f0; color: #999; }
   tr.pool-row td { background: #f4f7ff; }
+  tr.pool-row td:first-child { box-shadow: inset 4px 0 0 #aab9dd; }
   tr.counts-row td { background: #e4edff; }
-  tr.counts-row td:first-child { box-shadow: inset 3px 0 0 var(--blue); }
+  tr.counts-row td:first-child { box-shadow: inset 4px 0 0 var(--blue); }
   tr.counts-row td b { color: var(--blue); }
   .tag.pool { background: #e7ecf7; color: #5a6486; }
   .counts-legend { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; font-size:.72rem; color:var(--muted); margin-top:4px; line-height:1.5; }
@@ -606,7 +614,7 @@ function renderTrend() {
 function renderLast() {
   const rows = sortedResults().filter(r=>r.f).slice(0,6);
   const { win, best } = poolSets();
-  $('lastRounds').innerHTML = '<div style="overflow-x:auto"><table>' + rows.map(r =>
+  $('lastRounds').innerHTML = '<div style="overflow-x:auto"><table class="mini">' + rows.map(r =>
     `<tr class="${!r.noHcp && best.has(r.k)?'counts-row':(!r.noHcp && win.has(r.k)?'pool-row':'')}"><td>${r.d}</td><td>${r.g.slice(0,26)}</td><td>${r.club}</td><td><b>${r.stbl||'–'}</b> pt</td>
      <td>${r.va!==''&&+r.va!==0 ? `<span class="${+r.va<0?'down':'up'}">${+r.va>0?'+':''}${r.va}</span>` : '='}</td></tr>`).join('') + '</table></div>';
 }
