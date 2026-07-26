@@ -28,11 +28,13 @@
   nav button.active { color: var(--blue); font-weight: 600; border-bottom-color: var(--blue); }
   main { max-width: 780px; margin: 0 auto; padding: 16px 14px; }
   @media (max-width: 640px) {
-    nav { position: fixed; top: auto; bottom: 0; left: 0; right: 0; border-top: 1px solid var(--border); border-bottom: none; box-shadow: 0 -1px 10px rgba(20,32,74,.06); }
-    nav button { border-bottom: none; font-size: .68rem; gap: 4px; padding: 11px 3px calc(11px + env(safe-area-inset-bottom)); }
-    nav button svg { width: 27px; height: 27px; }
+    body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
+    header { order: 0; flex: none; }
+    main { order: 1; flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 14px 18px; }
+    nav { order: 2; flex: none; position: static; top: auto; bottom: auto; border-top: 1px solid var(--border); border-bottom: none; box-shadow: 0 -1px 10px rgba(20,32,74,.06); padding-bottom: env(safe-area-inset-bottom); }
+    nav button { border-bottom: none; font-size: .68rem; gap: 4px; padding: 9px 3px; }
+    nav button svg { width: 26px; height: 26px; }
     nav button.active { border-bottom: none; }
-    main { padding-bottom: 92px; }
   }
   .card { background: var(--card); border: 1px solid #e7ecf7; border-radius: 16px; padding: 18px; margin-bottom: 14px; }
   .card h2 { font-family: var(--serif); font-size: 1.05rem; font-weight: 400; letter-spacing: .08em; color: var(--green); margin-bottom: 10px; text-transform: uppercase; }
@@ -56,6 +58,11 @@
   .tag { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: .68rem; font-weight: 700; }
   .tag.count { background: var(--green-light); color: var(--green); }
   .tag.no { background: #f0f0f0; color: #999; }
+  tr.counts-row td { background: #eaf1ff; }
+  tr.counts-row td:first-child { box-shadow: inset 3px 0 0 var(--blue); }
+  tr.counts-row td b { color: var(--blue); }
+  .counts-legend { display:inline-flex; align-items:center; gap:6px; font-size:.72rem; color:var(--muted); margin-top:2px; }
+  .counts-legend .sw { width:12px; height:12px; border-radius:3px; background:#eaf1ff; box-shadow: inset 3px 0 0 var(--blue); }
   .note { font-size: .76rem; color: var(--muted); margin-top: 8px; line-height: 1.5; }
   .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   @media (max-width: 560px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -270,7 +277,7 @@
       <thead><tr><th>Data</th><th>Circolo</th><th>Stbl</th><th>Score</th><th>SD</th><th>Index</th><th></th></tr></thead>
       <tbody></tbody>
     </table></div>
-    <p class="note">\u2713 = tra i migliori 8 SD degli ultimi 20 (le SD che formano l'indice).</p>
+    <p class="note counts-legend"><span class="sw"></span> Righe evidenziate = le SD che formano oggi il tuo indice (migliori 8 degli ultimi 20). Cambiano a ogni nuova gara.</p>
   </div>
   <div class="card">
     <h2>Aggiorna lo storico dalla FIG</h2>
@@ -593,8 +600,9 @@ function renderTrend() {
 }
 function renderLast() {
   const rows = sortedResults().filter(r=>r.f).slice(0,6);
+  const keys = countingKeys();
   $('lastRounds').innerHTML = '<div style="overflow-x:auto"><table>' + rows.map(r =>
-    `<tr><td>${r.d}</td><td>${r.g.slice(0,26)}</td><td>${r.club}</td><td><b>${r.stbl||'–'}</b> pt</td>
+    `<tr class="${!r.noHcp && keys.has(roundKey(r))?'counts-row':''}"><td>${r.d}</td><td>${r.g.slice(0,26)}</td><td>${r.club}</td><td><b>${r.stbl||'–'}</b> pt</td>
      <td>${r.va!==''&&+r.va!==0 ? `<span class="${+r.va<0?'down':'up'}">${+r.va>0?'+':''}${r.va}</span>` : '='}</td></tr>`).join('') + '</table></div>';
 }
 
@@ -697,11 +705,17 @@ function runSim() {
 }
 
 // ============ RISULTATI ============
+function countingKeys() {
+  const dr = diffRows().slice(0,20);
+  if (!dr.length) return new Set();
+  const { use } = WHS.selectionTable(Math.min(dr.length,20)||3);
+  const chosen = dr.map((r,i)=>[+r.sd,i]).sort((a,b)=>a[0]-b[0]).slice(0,use).map(x=>dr[x[1]]);
+  return new Set(chosen.map(r=>r.d+'#'+r.sd+'#'+r.club));
+}
+const roundKey = r => r.d+'#'+r.sd+'#'+r.club;
 function renderRounds() {
   const rows = sortedResults();
-  const dr = diffRows().slice(0,20);
-  const { use } = WHS.selectionTable(Math.min(dr.length,20)||3);
-  const bestSet = new Set(dr.map((r,i)=>[+r.sd,i]).sort((a,b)=>a[0]-b[0]).slice(0,use).map(x=>dr[x[1]]));
+  const keys = countingKeys();
   const clubs = [...new Set(rows.map(r=>r.club))].sort();
   const years = [...new Set(rows.map(r=>r.d.split('/')[2]))].sort().reverse();
   $('fClub').innerHTML = '<option value="">Tutti</option>' + clubs.map(c=>`<option${$('fClub').value===c?' selected':''}>${c}</option>`).join('');
@@ -712,13 +726,13 @@ function renderRounds() {
   const tb = $('roundsTable').querySelector('tbody');
   if (!rows.length) { tb.innerHTML = '<tr><td colspan="7" class="note" style="padding:16px">Nessuna gara ancora. Aggiungine una qui sopra.</td></tr>'; return; }
   tb.innerHTML = filtered.map(r => {
-    const counts = bestSet.has(r);
+    const counts = !r.noHcp && keys.has(roundKey(r));
     const rid = (S.rounds.find(x=>x.d===r.d && String(x.ags)===r.ags && x.club===r.club)||{}).id || '';
     const club = r.noHcp ? r.club + ' <span class="tag no" title="Gara a coppie/squadra: non conta per l\'handicap">coppia</span>' : r.club;
-    return `<tr><td style="white-space:nowrap">${r.d}</td><td>${club}</td>
+    return `<tr class="${counts?'counts-row':''}"><td style="white-space:nowrap">${r.d}</td><td>${club}</td>
       <td>${r.stbl||'–'}</td><td>${r.ags&&+r.ags?r.ags:'–'}</td><td><b>${r.sd!==''?(+r.sd).toFixed(1):'–'}</b></td>
       <td>${r.inw!==''?(+r.inw).toFixed(1):'–'}</td>
-      <td>${r.noHcp?'':(counts?'<span class="tag count">✓</span>':'<span class="tag no">–</span>')} <span style="color:#ce2b37;cursor:pointer;margin-left:8px" onclick="delRound('${rid}')">✕</span></td></tr>`;
+      <td>${r.noHcp?'':(counts?'<span class="tag count">conta</span>':'<span class="tag no">–</span>')} <span style="color:#ce2b37;cursor:pointer;margin-left:8px" onclick="delRound('${rid}')">✕</span></td></tr>`;
   }).join('');
 }
 
