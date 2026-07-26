@@ -640,7 +640,7 @@ function renderDash() {
   renderTrend();
 }
 function renderTrend() {
-  let pts = sortedResults().filter(r=>r.inw!=='' && inPeriod(r)).map(r=>({date:parseDate(r.d), hi:+r.inw})).reverse();
+  let pts = sortedResults().filter(r=>r.inw!=='' && inPeriod(r)).map(r=>({date:new Date(parseDate(r.d)), hi:+r.inw})).reverse();
   const el = $('trend');
   if (pts.length < 2) { el.innerHTML='<p class="note">Nessuna gara nel periodo selezionato.</p>'; return; }
   const W=360, H=190, PL=34, PR=16, PT=18, PB=26;
