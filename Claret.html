@@ -58,11 +58,16 @@
   .tag { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: .68rem; font-weight: 700; }
   .tag.count { background: var(--green-light); color: var(--green); }
   .tag.no { background: #f0f0f0; color: #999; }
-  tr.counts-row td { background: #eaf1ff; }
+  tr.pool-row td { background: #f4f7ff; }
+  tr.counts-row td { background: #e4edff; }
   tr.counts-row td:first-child { box-shadow: inset 3px 0 0 var(--blue); }
   tr.counts-row td b { color: var(--blue); }
-  .counts-legend { display:inline-flex; align-items:center; gap:6px; font-size:.72rem; color:var(--muted); margin-top:2px; }
-  .counts-legend .sw { width:12px; height:12px; border-radius:3px; background:#eaf1ff; box-shadow: inset 3px 0 0 var(--blue); }
+  .tag.pool { background: #e7ecf7; color: #5a6486; }
+  .counts-legend { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; font-size:.72rem; color:var(--muted); margin-top:4px; line-height:1.5; }
+  .counts-legend .k { display:inline-flex; align-items:center; gap:6px; }
+  .counts-legend .sw { width:14px; height:14px; border-radius:3px; flex:none; }
+  .counts-legend .sw.best { background:#e4edff; box-shadow: inset 3px 0 0 var(--blue); }
+  .counts-legend .sw.pool { background:#f4f7ff; border:1px solid var(--border); }
   .note { font-size: .76rem; color: var(--muted); margin-top: 8px; line-height: 1.5; }
   .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   @media (max-width: 560px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -277,7 +282,7 @@
       <thead><tr><th>Data</th><th>Circolo</th><th>Stbl</th><th>Score</th><th>SD</th><th>Index</th><th></th></tr></thead>
       <tbody></tbody>
     </table></div>
-    <p class="note counts-legend"><span class="sw"></span> Righe evidenziate = le SD che formano oggi il tuo indice (migliori 8 degli ultimi 20). Cambiano a ogni nuova gara.</p>
+    <p class="counts-legend"><span class="k"><span class="sw best"></span> migliori 8 (contano)</span><span class="k"><span class="sw pool"></span> ultime 20 (la finestra)</span><span style="flex-basis:100%">Con la prossima gara la più vecchia delle 20 esce: se è tra le migliori 8, l'indice cambia.</span></p>
   </div>
   <div class="card">
     <h2>Aggiorna lo storico dalla FIG</h2>
@@ -491,7 +496,7 @@ function computeRows() {
       inw = WHS.handicapIndex(last20, lows.length?Math.min(...lows):null);
     } else inw = io;
     const va = (r.va!=null && r.va!=='') ? +r.va : ((inw!=null && io!=null) ? Math.round((inw-io)*10)/10 : 0);
-    out.push({ d:r.d, g:r.course||'Gara', club:r.club, giro:'1', f:'SPS', b:((r.holes||(+r.par>=54?18:9))==18?'18':'9'), v:'S',
+    out.push({ k: out.length, d:r.d, g:r.course||'Gara', club:r.club, giro:'1', f:'SPS', b:((r.holes||(+r.par>=54?18:9))==18?'18':'9'), v:'S',
       ph:String(r.ph!=null?r.ph:''), par:String(r.par), cr:String(r.cr), sr:String(r.slope),
       stbl:String(r.stbl!=null?r.stbl:''), ags:String(r.ags!=null?r.ags:''), pcc:'0',
       sd: sd!=null?(+sd).toFixed(1):'', io: io!=null?(+io).toFixed(1):'', inw: inw!=null?(+inw).toFixed(1):'', va:(+va).toFixed(1), noHcp: !!r.noHcp });
@@ -600,9 +605,9 @@ function renderTrend() {
 }
 function renderLast() {
   const rows = sortedResults().filter(r=>r.f).slice(0,6);
-  const keys = countingKeys();
+  const { win, best } = poolSets();
   $('lastRounds').innerHTML = '<div style="overflow-x:auto"><table>' + rows.map(r =>
-    `<tr class="${!r.noHcp && keys.has(roundKey(r))?'counts-row':''}"><td>${r.d}</td><td>${r.g.slice(0,26)}</td><td>${r.club}</td><td><b>${r.stbl||'–'}</b> pt</td>
+    `<tr class="${!r.noHcp && best.has(r.k)?'counts-row':(!r.noHcp && win.has(r.k)?'pool-row':'')}"><td>${r.d}</td><td>${r.g.slice(0,26)}</td><td>${r.club}</td><td><b>${r.stbl||'–'}</b> pt</td>
      <td>${r.va!==''&&+r.va!==0 ? `<span class="${+r.va<0?'down':'up'}">${+r.va>0?'+':''}${r.va}</span>` : '='}</td></tr>`).join('') + '</table></div>';
 }
 
@@ -705,17 +710,21 @@ function runSim() {
 }
 
 // ============ RISULTATI ============
-function countingKeys() {
+// Finestra WHS: le ultime 20 SD valide (win) e, dentro, le migliori che formano l'indice (best).
+// Uso l'indice cronologico univoco k di ogni gara: niente collisioni con gare diverse.
+function poolSets() {
   const dr = diffRows().slice(0,20);
-  if (!dr.length) return new Set();
-  const { use } = WHS.selectionTable(Math.min(dr.length,20)||3);
-  const chosen = dr.map((r,i)=>[+r.sd,i]).sort((a,b)=>a[0]-b[0]).slice(0,use).map(x=>dr[x[1]]);
-  return new Set(chosen.map(r=>r.d+'#'+r.sd+'#'+r.club));
+  const win = new Set(dr.map(r=>r.k));
+  let best = new Set();
+  if (dr.length) {
+    const { use } = WHS.selectionTable(Math.min(dr.length,20)||3);
+    best = new Set(dr.map(r=>[+r.sd, r.k]).sort((a,b)=>a[0]-b[0]).slice(0,use).map(x=>x[1]));
+  }
+  return { win, best };
 }
-const roundKey = r => r.d+'#'+r.sd+'#'+r.club;
 function renderRounds() {
   const rows = sortedResults();
-  const keys = countingKeys();
+  const { win, best } = poolSets();
   const clubs = [...new Set(rows.map(r=>r.club))].sort();
   const years = [...new Set(rows.map(r=>r.d.split('/')[2]))].sort().reverse();
   $('fClub').innerHTML = '<option value="">Tutti</option>' + clubs.map(c=>`<option${$('fClub').value===c?' selected':''}>${c}</option>`).join('');
@@ -726,13 +735,15 @@ function renderRounds() {
   const tb = $('roundsTable').querySelector('tbody');
   if (!rows.length) { tb.innerHTML = '<tr><td colspan="7" class="note" style="padding:16px">Nessuna gara ancora. Aggiungine una qui sopra.</td></tr>'; return; }
   tb.innerHTML = filtered.map(r => {
-    const counts = !r.noHcp && keys.has(roundKey(r));
+    const counts = !r.noHcp && best.has(r.k);
+    const inWin = !r.noHcp && win.has(r.k);
     const rid = (S.rounds.find(x=>x.d===r.d && String(x.ags)===r.ags && x.club===r.club)||{}).id || '';
     const club = r.noHcp ? r.club + ' <span class="tag no" title="Gara a coppie/squadra: non conta per l\'handicap">coppia</span>' : r.club;
-    return `<tr class="${counts?'counts-row':''}"><td style="white-space:nowrap">${r.d}</td><td>${club}</td>
+    const badge = r.noHcp ? '' : (counts ? '<span class="tag count">conta</span>' : inWin ? '<span class="tag pool">ultime 20</span>' : '<span class="tag no">fuori</span>');
+    return `<tr class="${counts?'counts-row':(inWin?'pool-row':'')}"><td style="white-space:nowrap">${r.d}</td><td>${club}</td>
       <td>${r.stbl||'–'}</td><td>${r.ags&&+r.ags?r.ags:'–'}</td><td><b>${r.sd!==''?(+r.sd).toFixed(1):'–'}</b></td>
       <td>${r.inw!==''?(+r.inw).toFixed(1):'–'}</td>
-      <td>${r.noHcp?'':(counts?'<span class="tag count">conta</span>':'<span class="tag no">–</span>')} <span style="color:#ce2b37;cursor:pointer;margin-left:8px" onclick="delRound('${rid}')">✕</span></td></tr>`;
+      <td>${badge} <span style="color:#ce2b37;cursor:pointer;margin-left:8px" onclick="delRound('${rid}')">✕</span></td></tr>`;
   }).join('');
 }
 
