@@ -1038,14 +1038,27 @@ function renderStats() {
   const bestGrossR = gross18.length ? gross18.reduce((a,b)=> +b.ags < +a.ags ? b : a) : null;
   const bestGross = bestGrossR ? +bestGrossR.ags : null;
   const parRound = gross18.some(r => +r.ags <= +r.par);
+  const shortClub = s => { s = (s||'').trim(); return s.length > 13 ? (s.split(' ')[0]||s).slice(0,13) : s; };
+  const dshort = d => { const p = (d||'').split('/'); return p.length === 3 ? `${p[0]}/${p[1]}/${p[2].slice(2)}` : d; };
+  const stblAll = cnt.filter(r => r.stbl !== '' && !isNaN(+r.stbl));
+  const bestStblR = stblAll.length ? stblAll.reduce((a,b)=> +b.stbl > +a.stbl ? b : a) : null;
+  const bestStbl = bestStblR ? +bestStblR.stbl : null;
+  const worstIdx = idxRows.length ? Math.max(...idxRows.map(r=>+r.inw)) : null;
+  const drop = (worstIdx != null && cur != null) ? (worstIdx - cur) : null;
+  let streakC = 0, maxStreak = 0;
+  [...cnt].filter(r => r.stbl !== '' && !isNaN(+r.stbl)).reverse().forEach(r => { if (+r.stbl >= 36) { streakC++; if (streakC > maxStreak) maxStreak = streakC; } else streakC = 0; });
+  const _avg = a => a.reduce((x,y)=>x+y,0)/a.length;
+  const l5 = cnt.slice(0,5).map(r=>+r.sd), p5 = cnt.slice(5,10).map(r=>+r.sd);
+  let forma = null;
+  if (l5.length >= 3 && p5.length >= 3) { const a = _avg(l5), b = _avg(p5); forma = a < b-0.4 ? 'in miglioramento 📈' : a > b+0.4 ? 'in calo 📉' : 'stabile ➡️'; }
 
   // ---- RECORD E TRAGUARDI ----
   let rec = '<div class="stat-grid">'
     + statBox(lowest ? (+lowest.inw).toFixed(1) : '–', 'Miglior handicap')
     + statBox((cur!=null && lowest) ? ((cur-+lowest.inw)>0?'+':'')+(cur-+lowest.inw).toFixed(1) : '–', 'Dal tuo record')
-    + statBox(bestGross != null ? bestGross : '–', 'Miglior giro (colpi)')
+    + statBox(bestGross != null ? bestGross : '–', bestGrossR ? 'Giro ' + shortClub(bestGrossR.club) + ' ' + dshort(bestGrossR.d) : 'Miglior giro')
+    + statBox(bestStbl != null ? bestStbl : '–', 'Miglior Stableford')
     + '</div>';
-  if (bestGrossR) rec += `<p class="note">Miglior giro: <b>${bestGross} colpi</b> · ${bestGrossR.club} · ${bestGrossR.d}</p>`;
   if (cur != null) {
     const nextCat = Math.floor(cur) - (cur % 1 === 0 ? 1 : 0);
     const dist = cur - (nextCat + 0.9);
@@ -1055,12 +1068,16 @@ function renderStats() {
 
   // ---- BADGE ----
   const cat = [];
-  [30,20,10].forEach(t => cat.push({ ic:'⛳', txt:'Handicap sotto '+t, got: lowest && +lowest.inw < t }));
+  [30,20,15,10,5].forEach(t => cat.push({ ic:'⛳', txt:'Handicap sotto '+t, got: lowest && +lowest.inw < t }));
   cat.push({ ic:'💯', txt:'Break 100', got: bestGross!=null && bestGross < 100 });
   cat.push({ ic:'🔥', txt:'Break 90',  got: bestGross!=null && bestGross < 90 });
   cat.push({ ic:'🏆', txt:'Break 80',  got: bestGross!=null && bestGross < 80 });
   cat.push({ ic:'👑', txt:'Giro in par', got: parRound });
-  [100,200,300,400,500].forEach(t => cat.push({ ic:'📅', txt:t+' gare', got: cnt.length >= t }));
+  cat.push({ ic:'🎯', txt:'40 punti in gara', got: bestStbl!=null && bestStbl >= 40 });
+  cat.push({ ic:'📉', txt:'Sceso di 5 di handicap', got: drop!=null && drop >= 5 });
+  cat.push({ ic:'📉', txt:'Sceso di 10 di handicap', got: drop!=null && drop >= 10 });
+  cat.push({ ic:'🔁', txt:'5 gare di fila in handicap', got: maxStreak >= 5 });
+  [50,100,200,300].forEach(t => cat.push({ ic:'📅', txt:t+' gare', got: cnt.length >= t }));
   const chip = b => `<span class="badge${b.got?'':' locked'}"><span class="bi">${b.ic}</span>${b.txt}</span>`;
   const got = cat.filter(b=>b.got), locked = cat.filter(b=>!b.got);
   let bhtml = '';
@@ -1076,15 +1093,31 @@ function renderStats() {
   const last20 = cnt.slice(0,20).map(r=>+r.sd);
   const avg20 = last20.length ? last20.reduce((a,b)=>a+b,0)/last20.length : null;
   const avgAll = cnt.length ? cnt.reduce((s,r)=>s+ +r.sd,0)/cnt.length : null;
-  let cons = '–';
-  if (last20.length >= 5) { const mm=avg20; const sd=Math.sqrt(last20.reduce((s,x)=>s+(x-mm)*(x-mm),0)/last20.length); cons = sd<3?'Molto costante':sd<5?'Costante':'Altalenante'; }
-  $('stPerf').innerHTML = '<div class="stat-grid">'
+  let consBlock = '';
+  if (last20.length >= 5) {
+    const mm = avg20, sdv = Math.sqrt(last20.reduce((s,x)=>s+(x-mm)*(x-mm),0)/last20.length);
+    const score = Math.round(Math.max(0, Math.min(100, 100 - sdv*11)));
+    const levels = [[19,'Altalenante'],[39,'Variabile'],[59,'Costante'],[79,'Molto costante'],[100,'Roccia']];
+    const lvl = (levels.find(l => score <= l[0]) || levels[4])[1];
+    consBlock = `<div style="text-align:center;margin-bottom:2px">
+        <div style="font-size:2.6rem;font-weight:800;color:var(--blue);line-height:1">${score}<span style="font-size:1rem;color:var(--muted)">/100</span></div>
+        <div style="font-family:var(--serif);font-size:1.15rem;color:var(--green)">${lvl}</div>
+      </div>
+      <div style="position:relative;height:10px;border-radius:6px;background:linear-gradient(90deg,#d9a4a4,#e4d69a,#b9d6a6,#7bbf82);margin:10px 2px 4px">
+        <div style="position:absolute;top:-4px;left:calc(${score}% - 9px);width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid var(--blue);box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--muted);margin-bottom:8px"><span>Altalenante</span><span>Costante</span><span>Roccia</span></div>
+      <p class="note" style="margin-top:0">L'indice di costanza misura quanto sono vicini tra loro i tuoi ultimi differenziali: più alto, più giochi in modo regolare.</p>`;
+  }
+  $('stPerf').innerHTML = consBlock
+    + '<div class="stat-grid" style="margin-top:12px">'
     + statBox(avgStbl != null ? avgStbl.toFixed(1) : '–', 'Media Stableford')
     + statBox(inHcp != null ? inHcp + '%' : '–', 'Gare in handicap')
     + statBox(avg20 != null ? avg20.toFixed(1) : '–', 'Media SD (20)')
     + statBox(avgAll != null ? avgAll.toFixed(1) : '–', 'Media SD (sempre)')
     + '</div>'
-    + `<p class="note">Costanza (ultimi 20 giri): <b>${cons}</b>. "Gare in handicap" = quelle da 36+ punti.</p>`;
+    + (forma ? `<p class="note">Forma recente: <b>${forma}</b> — le tue ultime 5 gare rispetto alle 5 precedenti.</p>` : '')
+    + `<p class="note">"Gare in handicap" = gare chiuse con 36+ punti Stableford.</p>`;
 
   // ---- ANALISI CAMPI ----
   const byClub = {};
