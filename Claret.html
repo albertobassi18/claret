@@ -297,14 +297,18 @@
     <h2>Aggiorna lo storico dalla FIG</h2>
     <p class="note" style="margin-top:0">Per riportare (o aggiornare) tutte le tue gare ufficiali in un colpo solo:</p>
     <ol class="ov-steps">
-      <li>Apri <a href="https://areariservata.federgolf.it/Risultati/ShowGrid" target="_blank">i tuoi Risultati Federgolf</a> e accedi.</li>
-      <li>In fondo scegli <b>1000</b> righe, seleziona tutto (<b>Cmd/Ctrl+A</b>) e copia (<b>Cmd/Ctrl+C</b>).</li>
-      <li>Torna qui e incolla nel riquadro: si importa da solo.</li>
+      <li><b>1.</b> Tocca <b>Apri Federgolf</b> e accedi.</li>
+      <li><b>2.</b> In fondo scegli <b>1000</b> righe.</li>
+      <li><b>3.</b> Seleziona tutto e copia (iPhone: tieni premuto \u2192 Seleziona tutto \u2192 Copia).</li>
+      <li><b>4.</b> Torna qui e tocca <b>Importa dagli appunti</b>.</li>
     </ol>
     <a class="btn secondary" href="https://areariservata.federgolf.it/Risultati/ShowGrid" target="_blank" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">Apri Federgolf \u2197</a>
-    <textarea id="impBox" placeholder="Incolla qui (Cmd/Ctrl+V) i risultati copiati da Federgolf"></textarea>
-    <button class="btn secondary" style="width:100%" onclick="importHistory()">Importa</button>
-    <span class="note" id="impMsg" style="display:block;margin-top:6px"></span>
+    <button class="btn" style="width:100%" onclick="importClipboard('impMsg', null)">Importa dagli appunti</button>
+    <span class="note" id="impMsg" style="display:block;margin-top:6px;text-align:center"></span>
+    <details style="margin-top:10px"><summary class="note" style="cursor:pointer">Non funziona? Incolla a mano</summary>
+      <textarea id="impBox" placeholder="Incolla qui (Cmd/Ctrl+V) i risultati copiati da Federgolf"></textarea>
+      <button class="btn secondary" style="width:100%" onclick="importHistory()">Importa il testo incollato</button>
+    </details>
   </div>
 </section>
 <section id="tab-stats" class="hidden">
@@ -385,17 +389,21 @@
     </div>
 
     <div id="ovImport" class="hidden">
-      <h2 style="text-align:center;border:0">Importa i tuoi dati</h2>
-      <p class="note" style="margin-top:0;text-align:center">Handicap ufficiale + tutte le tue gare. Una volta sola, ~2 minuti.</p>
+      <h2 style="text-align:center;border:0">Importa le tue gare</h2>
+      <p class="note" style="margin-top:0;text-align:center">Handicap ufficiale + tutto il tuo storico. Una volta sola, dal telefono o dal computer.</p>
       <ol class="ov-steps">
-        <li>Tocca <b>Apri Federgolf</b> e accedi con le tue credenziali.</li>
-        <li>In fondo alla pagina scegli <b>1000</b> righe.</li>
-        <li>Seleziona tutto (<b>Cmd/Ctrl+A</b>) e copia (<b>Cmd/Ctrl+C</b>).</li>
-        <li>Torna qui e incolla nel riquadro: si importa da solo.</li>
+        <li><b>1.</b> Tocca <b>Apri Federgolf</b> e accedi.</li>
+        <li><b>2.</b> In fondo alla pagina scegli <b>1000</b> righe.</li>
+        <li><b>3.</b> Seleziona tutto e <b>Copia</b> (su iPhone: tieni premuto \u2192 <i>Seleziona tutto</i> \u2192 <i>Copia</i>).</li>
+        <li><b>4.</b> Torna qui e tocca <b>Importa quello che ho copiato</b>.</li>
       </ol>
-      <a class="btn" href="https://areariservata.federgolf.it/Risultati/ShowGrid" target="_blank" style="display:block;width:100%;text-align:center;text-decoration:none;box-sizing:border-box">Apri Federgolf \u2197</a>
-      <textarea id="ovImpBox" placeholder="Incolla qui (Cmd/Ctrl+V)"></textarea>
+      <a class="btn secondary" href="https://areariservata.federgolf.it/Risultati/ShowGrid" target="_blank" style="display:block;width:100%;text-align:center;text-decoration:none;box-sizing:border-box">Apri Federgolf \u2197</a>
+      <button class="btn" style="width:100%" onclick="importClipboard('ovImpMsg', ovImportDone)">Importa quello che ho copiato</button>
       <span class="note" id="ovImpMsg" style="display:block;text-align:center"></span>
+      <details style="margin-top:10px"><summary class="note" style="cursor:pointer">Non funziona? Incolla a mano</summary>
+        <textarea id="ovImpBox" placeholder="Incolla qui (Cmd/Ctrl+V)"></textarea>
+        <button class="btn secondary" style="width:100%" onclick="ovImport()">Importa il testo incollato</button>
+      </details>
       <p class="note" style="text-align:center;margin-top:10px">Non hai gare federali? <a href="#" onclick="ovGo('quick');return false">inserisci solo il tuo handicap</a></p>
     </div>
   </div>
@@ -855,12 +863,13 @@ function delRound(id) {
 
 // ============ IMPORT STORICO FIG (copia-incolla, dati dell'utente) ============
 function importHistory() { importFromText($('impBox').value || '', 'impMsg', null); $('impBox').value=''; }
-function importFromText(txt, msgId, onDone) {
+// Dato un insieme di righe (ognuna = array di celle), estrae le gare valide.
+// Funziona sia col testo (celle separate da TAB) sia con l'HTML della tabella (celle = <td>).
+function parseImportedRows(rowsCells) {
   const dateRe = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
   const rows = [];
-  for (const raw of txt.split(/\r?\n/)) {
-    const c = raw.split('\t').map(s => s.trim());
-    if (c.length < 23) continue;
+  for (const c of rowsCells) {
+    if (!c || c.length < 23) continue;
     if (!dateRe.test(c[0])) continue;
     const cr = parseFloat(c[13]), sr = parseInt(c[14], 10);
     if (!cr || !sr) continue;                     // salta righe non-gara
@@ -873,8 +882,11 @@ function importFromText(txt, msgId, onDone) {
       sd: num(c[18]), io: num(c[21]), inw: num(c[22]), va: num(c[23])
     });
   }
+  return rows;
+}
+function commitImportedRows(rows, msgId, onDone) {
   if (rows.length < 3) {
-    if (msgId) $(msgId).textContent = 'Ho riconosciuto poche righe: assicurati di aver copiato la pagina dei Risultati (seleziona tutto e copia).';
+    if (msgId) $(msgId).textContent = 'Ho riconosciuto poche righe: assicurati di aver copiato tutta la pagina dei Risultati (seleziona tutto e copia).';
     return false;
   }
   // unisci alle gare aggiunte a mano evitando doppioni per data+circolo+score
@@ -889,6 +901,18 @@ function importFromText(txt, msgId, onDone) {
   renderAll();
   if (onDone) onDone(rows.length);
   return true;
+}
+// Copia da COMPUTER (testo con TAB)
+function importFromText(txt, msgId, onDone) {
+  const cells = txt.split(/\r?\n/).map(line => line.split('\t').map(s => s.trim()));
+  return commitImportedRows(parseImportedRows(cells), msgId, onDone);
+}
+// Copia da TELEFONO o computer (HTML della tabella): struttura sempre corretta
+function importFromHTML(html, msgId, onDone) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const cells = [...doc.querySelectorAll('tr')].map(tr =>
+    [...tr.querySelectorAll('td,th')].map(td => (td.textContent || '').replace(/\s+/g, ' ').trim()));
+  return commitImportedRows(parseImportedRows(cells), msgId, onDone);
 }
 
 // ============ PROFILO (index di riferimento) ============
@@ -909,15 +933,29 @@ function ovImportDone(n) {
 function ovImport() { importFromText($('ovImpBox').value || '', 'ovImpMsg', ovImportDone); }
 // Legge direttamente dagli appunti: un tocco = incolla + importa
 async function importClipboard(msgId, onDone) {
+  if (msgId) $(msgId).textContent = 'Leggo gli appunti…';
   try {
+    // 1) Prova a leggere l'HTML della tabella (affidabile anche da telefono)
+    if (navigator.clipboard && navigator.clipboard.read) {
+      try {
+        const items = await navigator.clipboard.read();
+        for (const it of items) {
+          if (it.types && it.types.includes('text/html')) {
+            const html = await (await it.getType('text/html')).text();
+            if (/\d{1,2}\/\d{1,2}\/\d{4}/.test(html) && importFromHTML(html, msgId, onDone)) return;
+          }
+        }
+      } catch (e) { /* passo al testo semplice */ }
+    }
+    // 2) Fallback: testo semplice (copia da computer con TAB)
     const txt = await navigator.clipboard.readText();
     if (!txt || !/\d{1,2}\/\d{1,2}\/\d{4}/.test(txt)) {
-      $(msgId).textContent = 'Negli appunti non ci sono dati Federgolf. Copia la pagina (Cmd/Ctrl+A poi Cmd/Ctrl+C) e riprova, oppure usa "incolla a mano".';
+      $(msgId).textContent = 'Negli appunti non ci sono dati Federgolf. Apri i Risultati, seleziona tutto, copia e riprova.';
       return;
     }
     importFromText(txt, msgId, onDone);
   } catch (e) {
-    $(msgId).textContent = 'Il browser non mi permette di leggere gli appunti: apri "incolla a mano" qui sotto e incolla.';
+    $(msgId).textContent = 'Il browser non mi permette di leggere gli appunti: usa "incolla a mano" qui sotto e incolla.';
   }
 }
 function editProfile() { openProfile(false); }
