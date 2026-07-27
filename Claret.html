@@ -380,12 +380,16 @@
 
     <div id="ovQuick">
       <h2 style="text-align:center;border:0">Ciao \U0001F44B</h2>
-      <p class="note" style="text-align:center;margin-top:0">Qual è il tuo handicap oggi?</p>
+      <p class="note" style="text-align:center;margin-top:0">Scrivi il tuo Handicap Index attuale e sei subito dentro. Lo trovi sulla tua tessera FIG.</p>
       <input id="ovHI" type="number" step="0.1" inputmode="decimal" placeholder="es. 23.2" style="font-size:1.4rem;text-align:center;padding:14px">
       <input id="ovName" type="hidden">
       <button class="btn" style="width:100%" onclick="saveProfile()">Inizia</button>
-      <p class="note" style="text-align:center;margin-top:16px"><a href="#" onclick="ovGo('import');return false">Ho già lo storico FIG: importa tutte le mie gare</a></p>
-      <p class="note" style="text-align:center;margin-top:6px"><a href="#" onclick="resetApp();return false" style="color:#ce2b37">Cancella i dati e ricomincia da zero</a></p>
+      <div style="border-top:1px solid var(--border);margin:18px 0 0;padding-top:14px;text-align:center">
+        <p class="note" style="margin:0 0 8px">Hai già lo storico su Federgolf? Puoi importare tutte le tue gare.</p>
+        <button class="btn secondary" style="width:100%" onclick="ovGo('import')">Importa lo storico</button>
+        <p class="note" style="margin-top:8px">Consigliato dal computer: da iPhone la copia dei dati non è supportata.</p>
+      </div>
+      <p class="note" style="text-align:center;margin-top:14px"><a href="#" onclick="resetApp();return false" style="color:#ce2b37">Ricomincia da zero</a></p>
     </div>
 
     <div id="ovImport" class="hidden">
@@ -923,7 +927,7 @@ function ovGo(step) {
 function openProfile(first) {
   if ($('ovName')) $('ovName').value = S.name || '';
   $('ovHI').value = S.currentHI != null ? S.currentHI : '';
-  ovGo(first ? 'import' : 'quick');
+  ovGo('quick');
   $('overlay').classList.remove('hidden');
 }
 function ovImportDone(n) {
