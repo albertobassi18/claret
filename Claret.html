@@ -1058,7 +1058,7 @@ function renderStats() {
   let rec = '<div class="stat-grid">'
     + statBox(lowest ? (+lowest.inw).toFixed(1) : '–', 'Miglior handicap')
     + statBox((cur!=null && lowest) ? ((cur-+lowest.inw)>0?'+':'')+(cur-+lowest.inw).toFixed(1) : '–', 'Dal tuo record')
-    + statBox(bestGross != null ? bestGross : '–', bestGrossR ? 'Giro ' + shortClub(bestGrossR.club) + ' ' + dshort(bestGrossR.d) : 'Miglior giro')
+    + statBox(bestGross != null ? bestGross : '–', bestGrossR ? 'Colpi ' + shortClub(bestGrossR.club) + ' ' + bestGrossR.d : 'Miglior giro')
     + statBox(bestStbl != null ? bestStbl : '–', 'Miglior Stableford')
     + '</div>';
   if (cur != null) {
@@ -1109,7 +1109,7 @@ function renderStats() {
         <div style="position:absolute;top:-4px;left:calc(${score}% - 9px);width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid var(--blue);box-shadow:0 1px 3px rgba(0,0,0,.2)"></div>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--muted);margin-bottom:8px"><span>Altalenante</span><span>Costante</span><span>Roccia</span></div>
-      <p class="note" style="margin-top:0">L'indice di costanza misura quanto sono vicini tra loro i tuoi ultimi differenziali: più alto, più giochi in modo regolare.</p>`;
+      <p class="note" style="margin-top:0">L'indice di costanza misura quanto sono vicini tra loro i tuoi ultimi score differential (SD): più alto, più giochi in modo regolare.</p>`;
   }
   $('stPerf').innerHTML = consBlock
     + '<div class="stat-grid" style="margin-top:12px">'
@@ -1127,10 +1127,10 @@ function renderStats() {
   const overPar = (avgGross!=null && avgPar!=null) ? avgGross - avgPar : null;
   const avgStbl2 = stblAll.length ? stblAll.reduce((s,r)=>s+ +r.stbl,0)/stblAll.length : null;
   let giro = '<div class="stat-grid">'
-    + statBox(avgGross!=null ? Math.round(avgGross) : '–', 'Colpi tipici (18)')
+    + statBox(avgGross!=null ? Math.round(avgGross) : '–', 'Colpi (18)')
     + statBox(overPar!=null ? (overPar>=0?'+':'')+Math.round(overPar) : '–', 'Sul par')
-    + statBox(avgStbl2!=null ? avgStbl2.toFixed(1) : '–', 'Punti tipici')
-    + statBox(avgAll!=null ? avgAll.toFixed(1) : '–', 'Differenziale tipico')
+    + statBox(avgStbl2!=null ? avgStbl2.toFixed(1) : '–', 'Punti')
+    + statBox(avgAll!=null ? avgAll.toFixed(1) : '–', 'SD')
     + '</div>';
   if (avgGross!=null && avgStbl2!=null) giro += `<p class="note">In una giornata tipo giri in <b>${Math.round(avgGross)} colpi</b>${overPar!=null?` (${overPar>=0?'+':''}${Math.round(overPar)} sul par)`:''} e chiudi con <b>${Math.round(avgStbl2)} punti</b>.</p>`;
   else giro += '<p class="note">Servono un po\' di gare 18 buche con lo score per il tuo giro tipo.</p>';
@@ -1163,12 +1163,16 @@ function renderStats() {
   const most = clubs.length ? clubs.reduce((a,b)=> b.n > a.n ? b : a) : null;
   let campi = '<div class="stat-grid">'
     + statBox(clubs.length, 'Campi diversi')
-    + statBox(most ? most.n : '–', 'Sul più giocato')
     + statBox(cnt.length, 'Gare valide')
+    + statBox(most ? most.n : '–', 'Sul più giocato')
+    + statBox(best ? best.avg.toFixed(1) : '–', 'Miglior SD media')
     + '</div>';
-  if (most) campi += `<p class="note">Campo più giocato: <b>${most.club}</b> (${most.n} gare).</p>`;
-  if (best) campi += `<p class="note">Dove giochi meglio: <b>${best.club}</b> (SD media ${best.avg.toFixed(1)}).</p>`;
-  if (worst && (!best || worst.club !== best.club)) campi += `<p class="note">Dove soffri di più: <b>${worst.club}</b> (media ${worst.avg.toFixed(1)}).</p>`;
+  const crow = (ic, label, club, extra) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:.88rem;padding:10px 12px;background:var(--green-light);border-radius:10px;margin-top:8px"><span style="color:var(--muted)">${ic} ${label}</span><span style="text-align:right"><b style="color:var(--green)">${club}</b> <span style="color:var(--muted);font-size:.8rem">${extra}</span></span></div>`;
+  let crows = '';
+  if (most) crows += crow('🏠', 'Più giocato', most.club, most.n + ' gare');
+  if (best) crows += crow('💚', 'Dove giochi meglio', best.club, 'SD ' + best.avg.toFixed(1));
+  if (worst && (!best || worst.club !== best.club)) crows += crow('🔻', 'Dove soffri', worst.club, 'SD ' + worst.avg.toFixed(1));
+  campi += crows;
   $('stCampi').innerHTML = campi;
 
   // ---- ATTIVITÀ NEL TEMPO ----
