@@ -1141,7 +1141,7 @@ function renderStats() {
 function fitShell() { if (window.innerWidth > 640) return; const h = document.querySelector('header'), m = document.querySelector('main'); if (h && m) m.style.paddingTop = (h.offsetHeight + 12) + 'px'; }
 window.addEventListener('resize', fitShell); window.addEventListener('load', fitShell);
 // Splash: mostra il logo all'avvio, poi sfuma
-window.addEventListener('load', function(){ setTimeout(function(){ var s=document.getElementById('splash'); if(s){ s.classList.add('hide'); setTimeout(function(){ if(s.parentNode) s.parentNode.removeChild(s); }, 500); } }, 850); });
+window.addEventListener('load', function(){ setTimeout(function(){ var s=document.getElementById('splash'); if(s){ s.classList.add('hide'); setTimeout(function(){ if(s.parentNode) s.parentNode.removeChild(s); }, 550); } }, 1700); });
 function renderAll() { renderDash(); renderRounds(); renderStats(); const hi=officialHI(); if(hi!==null && $('playHI')) $('playHI').value = hi.toFixed(1); fitShell(); }
 function goAddRound() {
   const b = document.querySelector('nav button[data-tab="rounds"]'); if (b) b.click();
