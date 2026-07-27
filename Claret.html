@@ -297,12 +297,12 @@
     <h2>Aggiorna lo storico dalla FIG</h2>
     <p class="note" style="margin-top:0">Per riportare (o aggiornare) tutte le tue gare ufficiali in un colpo solo:</p>
     <ol class="ov-steps">
-      <li><b>1.</b> Tocca <b>Apri Federgolf</b> e accedi.</li>
-      <li><b>2.</b> In fondo scegli <b>1000</b> righe.</li>
-      <li><b>3.</b> Seleziona tutto e copia (iPhone: tieni premuto \u2192 Seleziona tutto \u2192 Copia).</li>
-      <li><b>4.</b> Torna qui e tocca <b>Importa dagli appunti</b>.</li>
+      <li>Apri Federgolf e accedi.</li>
+      <li>In fondo scegli 1000 righe.</li>
+      <li>Seleziona tutto e copia.</li>
+      <li>Torna qui e tocca "Importa dagli appunti".</li>
     </ol>
-    <a class="btn secondary" href="https://areariservata.federgolf.it/Risultati/ShowGrid" target="_blank" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">Apri Federgolf \u2197</a>
+    <a class="btn secondary" href="https://areariservata.federgolf.it/Risultati/ShowGrid" target="_blank" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">Apri Federgolf</a>
     <button class="btn" style="width:100%" onclick="importClipboard('impMsg', null)">Importa dagli appunti</button>
     <span class="note" id="impMsg" style="display:block;margin-top:6px;text-align:center"></span>
     <details style="margin-top:10px"><summary class="note" style="cursor:pointer">Non funziona? Incolla a mano</summary>
@@ -384,20 +384,20 @@
       <input id="ovHI" type="number" step="0.1" inputmode="decimal" placeholder="es. 23.2" style="font-size:1.4rem;text-align:center;padding:14px">
       <input id="ovName" type="hidden">
       <button class="btn" style="width:100%" onclick="saveProfile()">Inizia</button>
-      <p class="note" style="text-align:center;margin-top:16px"><a href="#" onclick="ovGo('import');return false">Ho già lo storico FIG → importa tutte le mie gare</a></p>
+      <p class="note" style="text-align:center;margin-top:16px"><a href="#" onclick="ovGo('import');return false">Ho già lo storico FIG: importa tutte le mie gare</a></p>
       <p class="note" style="text-align:center;margin-top:6px"><a href="#" onclick="resetApp();return false" style="color:#ce2b37">Cancella i dati e ricomincia da zero</a></p>
     </div>
 
     <div id="ovImport" class="hidden">
       <h2 style="text-align:center;border:0">Importa le tue gare</h2>
-      <p class="note" style="margin-top:0;text-align:center">Handicap ufficiale + tutto il tuo storico. Una volta sola, dal telefono o dal computer.</p>
+      <p class="note" style="margin-top:0;text-align:center">Porta qui il tuo handicap ufficiale e tutte le tue gare. Si fa una volta sola.</p>
       <ol class="ov-steps">
-        <li><b>1.</b> Tocca <b>Apri Federgolf</b> e accedi.</li>
-        <li><b>2.</b> In fondo alla pagina scegli <b>1000</b> righe.</li>
-        <li><b>3.</b> Seleziona tutto e <b>Copia</b> (su iPhone: tieni premuto \u2192 <i>Seleziona tutto</i> \u2192 <i>Copia</i>).</li>
-        <li><b>4.</b> Torna qui e tocca <b>Importa quello che ho copiato</b>.</li>
+        <li>Apri Federgolf e accedi.</li>
+        <li>In fondo alla pagina scegli 1000 righe.</li>
+        <li>Seleziona tutto e copia.</li>
+        <li>Torna qui e tocca "Importa quello che ho copiato".</li>
       </ol>
-      <a class="btn secondary" href="https://areariservata.federgolf.it/Risultati/ShowGrid" target="_blank" style="display:block;width:100%;text-align:center;text-decoration:none;box-sizing:border-box">Apri Federgolf \u2197</a>
+      <a class="btn secondary" href="https://areariservata.federgolf.it/Risultati/ShowGrid" target="_blank" style="display:block;width:100%;text-align:center;text-decoration:none;box-sizing:border-box">Apri Federgolf</a>
       <button class="btn" style="width:100%" onclick="importClipboard('ovImpMsg', ovImportDone)">Importa quello che ho copiato</button>
       <span class="note" id="ovImpMsg" style="display:block;text-align:center"></span>
       <details style="margin-top:10px"><summary class="note" style="cursor:pointer">Non funziona? Incolla a mano</summary>
