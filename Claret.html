@@ -28,12 +28,11 @@
   nav button.active { color: var(--blue); font-weight: 600; border-bottom-color: var(--blue); }
   main { max-width: 780px; margin: 0 auto; padding: 16px 14px; }
   @media (max-width: 640px) {
-    html, body { height: 100%; overscroll-behavior: none; }
-    body { display: flex; flex-direction: column; overflow: hidden; height: 100vh; height: 100svh; }
-    header { order: 0; flex: none; }
-    main { order: 1; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 14px 10px; }
+    /* Header e menù ancorati alla finestra: il contenuto scorre sotto, loro restano fermi */
+    header { position: fixed; top: 0; left: 0; right: 0; z-index: 50; }
+    main { padding: 96px 14px calc(100px + env(safe-area-inset-bottom)); }
     /* Barra flottante stile WHOOP: staccata dal fondo, arrotondata, sollevata */
-    nav { order: 2; flex: none; position: static; top: auto; bottom: auto; border: 1px solid var(--border); border-radius: 24px; background: #fff; box-shadow: 0 4px 18px rgba(20,32,74,.13); margin: 4px 12px calc(10px + env(safe-area-inset-bottom)); padding: 6px 5px; }
+    nav { position: fixed; top: auto; left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 50; border: 1px solid var(--border); border-radius: 24px; background: #fff; box-shadow: 0 4px 18px rgba(20,45,31,.14); padding: 6px 5px; }
     nav button { border-bottom: none; border-radius: 16px; font-size: .66rem; gap: 4px; padding: 8px 3px; }
     nav button svg { width: 25px; height: 25px; }
     nav button.active { border-bottom: none; background: var(--green-light); color: var(--blue); font-weight: 600; }
@@ -1135,7 +1134,9 @@ function renderStats() {
 }
 
 // ============ INIT ============
-function renderAll() { renderDash(); renderRounds(); renderStats(); const hi=officialHI(); if(hi!==null && $('playHI')) $('playHI').value = hi.toFixed(1); }
+function fitShell() { if (window.innerWidth > 640) return; const h = document.querySelector('header'), m = document.querySelector('main'); if (h && m) m.style.paddingTop = (h.offsetHeight + 12) + 'px'; }
+window.addEventListener('resize', fitShell); window.addEventListener('load', fitShell);
+function renderAll() { renderDash(); renderRounds(); renderStats(); const hi=officialHI(); if(hi!==null && $('playHI')) $('playHI').value = hi.toFixed(1); fitShell(); }
 function goAddRound() {
   const b = document.querySelector('nav button[data-tab="rounds"]'); if (b) b.click();
   setTimeout(()=>{ const s=$('addSearch'); if(s){ s.scrollIntoView({behavior:'smooth',block:'center'}); s.focus(); } }, 120);
