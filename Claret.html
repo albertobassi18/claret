@@ -308,6 +308,8 @@
   <div class="card"><h2>Record e traguardi</h2><div id="stRecord"></div></div>
   <div class="card"><h2>Badge raggiunti</h2><div id="stBadge"></div></div>
   <div class="card"><h2>Performance</h2><div id="stPerf"></div></div>
+  <div class="card"><h2>Il tuo giro tipo</h2><div id="stGiro"></div></div>
+  <div class="card"><h2>Prossimo handicap</h2><div id="stPredict"></div></div>
   <div class="card"><h2>Analisi campi</h2><div id="stCampi"></div></div>
   <div class="card"><h2>Attività nel tempo</h2><div id="stAttiv"></div></div>
 </section>
@@ -1028,7 +1030,7 @@ function renderStats() {
   const yNow = String(new Date().getFullYear());
 
   if (!cnt.length && !idxRows.length) {
-    ['stRecord','stBadge','stPerf','stCampi','stAttiv'].forEach(id => $(id).innerHTML = '<p class="note">Aggiungi o importa qualche gara per vedere le statistiche.</p>');
+    ['stRecord','stBadge','stPerf','stGiro','stPredict','stCampi','stAttiv'].forEach(id => $(id).innerHTML = '<p class="note">Aggiungi o importa qualche gara per vedere le statistiche.</p>');
     return;
   }
 
@@ -1118,6 +1120,38 @@ function renderStats() {
     + '</div>'
     + (forma ? `<p class="note">Forma recente: <b>${forma}</b> — le tue ultime 5 gare rispetto alle 5 precedenti.</p>` : '')
     + `<p class="note">"Gare in handicap" = gare chiuse con 36+ punti Stableford.</p>`;
+
+  // ---- IL TUO GIRO TIPO ----
+  const avgGross = gross18.length ? gross18.reduce((s,r)=>s+ +r.ags,0)/gross18.length : null;
+  const avgPar = gross18.length ? gross18.reduce((s,r)=>s+ +r.par,0)/gross18.length : null;
+  const overPar = (avgGross!=null && avgPar!=null) ? avgGross - avgPar : null;
+  const avgStbl2 = stblAll.length ? stblAll.reduce((s,r)=>s+ +r.stbl,0)/stblAll.length : null;
+  let giro = '<div class="stat-grid">'
+    + statBox(avgGross!=null ? Math.round(avgGross) : '–', 'Colpi tipici (18)')
+    + statBox(overPar!=null ? (overPar>=0?'+':'')+Math.round(overPar) : '–', 'Sul par')
+    + statBox(avgStbl2!=null ? avgStbl2.toFixed(1) : '–', 'Punti tipici')
+    + statBox(avgAll!=null ? avgAll.toFixed(1) : '–', 'Differenziale tipico')
+    + '</div>';
+  if (avgGross!=null && avgStbl2!=null) giro += `<p class="note">In una giornata tipo giri in <b>${Math.round(avgGross)} colpi</b>${overPar!=null?` (${overPar>=0?'+':''}${Math.round(overPar)} sul par)`:''} e chiudi con <b>${Math.round(avgStbl2)} punti</b>.</p>`;
+  else giro += '<p class="note">Servono un po\' di gare 18 buche con lo score per il tuo giro tipo.</p>';
+  $('stGiro').innerHTML = giro;
+
+  // ---- PROSSIMO HANDICAP (stima) ----
+  let pred = '<p class="note">Servono almeno una decina di gare valide per una stima affidabile.</p>';
+  if (last20.length >= 8 && cur != null) {
+    const low = lowHI365(), win19 = last20.slice(0,19);
+    const idxWith = s => WHS.handicapIndex([s, ...win19], low);
+    const sp = Math.sqrt(last20.reduce((s,x)=>s+(x-avg20)*(x-avg20),0)/last20.length);
+    const vals = [idxWith(avg20 - sp*0.8), idxWith(avg20), idxWith(avg20 + sp*0.8)];
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    const range = (hi - lo) < 0.05 ? lo.toFixed(1) : `${lo.toFixed(1)} – ${hi.toFixed(1)}`;
+    pred = `<div style="text-align:center;margin:2px 0 6px">
+        <div style="font-family:var(--serif);font-size:1.9rem;color:var(--blue);line-height:1.1">${range}</div>
+        <div class="note" style="margin-top:2px">stima dopo la tua prossima gara</div>
+      </div>
+      <p class="note">Se giochi come nelle ultime gare, il tuo Handicap Index si muoverà probabilmente in questo intervallo (ora sei a <b>${cur.toFixed(1)}</b>). È una stima indicativa, non un calcolo ufficiale.</p>`;
+  }
+  $('stPredict').innerHTML = pred;
 
   // ---- ANALISI CAMPI ----
   const byClub = {};
