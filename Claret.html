@@ -90,6 +90,9 @@
   .overlay.hidden { display: none; }
   .landing { position:fixed; inset:0; z-index:100; overflow-y:auto; background:#f9f4ee; color:#20342a; }
   .landing-logo-full { width:100%; max-width:340px; height:auto; display:block; margin:0 auto 16px; }
+  #splash { position:fixed; inset:0; z-index:1000; background:#f9f4ee; display:flex; align-items:center; justify-content:center; transition:opacity .45s ease; }
+  #splash img { width:72%; max-width:330px; height:auto; }
+  #splash.hide { opacity:0; pointer-events:none; }
   .landing.hidden { display:none; }
   body.preauth header, body.preauth nav { display: none; }
   .landing-inner { max-width:460px; margin:0 auto; padding:34px 20px 44px; min-height:100%; display:flex; flex-direction:column; justify-content:center; box-sizing:border-box; }
@@ -135,6 +138,7 @@
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}</script>
 </head>
 <body class="preauth">
+<div id="splash"><img src="/claret-logo.png" alt="Claret"></div>
 <header>
   <div class="brand">
     <img src="/icon-192.png" alt="Claret" style="height:42px;width:42px;border-radius:9px;display:block">
@@ -1136,6 +1140,8 @@ function renderStats() {
 // ============ INIT ============
 function fitShell() { if (window.innerWidth > 640) return; const h = document.querySelector('header'), m = document.querySelector('main'); if (h && m) m.style.paddingTop = (h.offsetHeight + 12) + 'px'; }
 window.addEventListener('resize', fitShell); window.addEventListener('load', fitShell);
+// Splash: mostra il logo all'avvio, poi sfuma
+window.addEventListener('load', function(){ setTimeout(function(){ var s=document.getElementById('splash'); if(s){ s.classList.add('hide'); setTimeout(function(){ if(s.parentNode) s.parentNode.removeChild(s); }, 500); } }, 850); });
 function renderAll() { renderDash(); renderRounds(); renderStats(); const hi=officialHI(); if(hi!==null && $('playHI')) $('playHI').value = hi.toFixed(1); fitShell(); }
 function goAddRound() {
   const b = document.querySelector('nav button[data-tab="rounds"]'); if (b) b.click();
