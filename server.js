@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 // File statici della PWA (solo questi, non l'intera cartella)
-['manifest.json', 'sw.js', 'icon-192.png', 'icon-512.png', 'icon-maskable.png', 'apple-touch-icon.png']
+['manifest.json', 'sw.js', 'icon-192.png', 'icon-512.png', 'icon-maskable.png', 'apple-touch-icon.png', 'claret-logo.png']
   .forEach(f => app.get('/' + f, (req, res) => res.sendFile(path.join(__dirname, f))));
 
 // Tutto il resto -> l'app
