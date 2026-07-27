@@ -29,9 +29,9 @@
   main { max-width: 780px; margin: 0 auto; padding: 16px 14px; }
   @media (max-width: 640px) {
     html, body { height: 100%; overscroll-behavior: none; }
-    body { display: flex; flex-direction: column; overflow: hidden; position: fixed; inset: 0; }
+    body { display: flex; flex-direction: column; overflow: hidden; height: 100vh; height: 100svh; }
     header { order: 0; flex: none; }
-    main { order: 1; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 14px 14px 10px; }
+    main { order: 1; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 14px 10px; }
     /* Barra flottante stile WHOOP: staccata dal fondo, arrotondata, sollevata */
     nav { order: 2; flex: none; position: static; top: auto; bottom: auto; border: 1px solid var(--border); border-radius: 24px; background: #fff; box-shadow: 0 4px 18px rgba(20,32,74,.13); margin: 4px 12px calc(10px + env(safe-area-inset-bottom)); padding: 6px 5px; }
     nav button { border-bottom: none; border-radius: 16px; font-size: .66rem; gap: 4px; padding: 8px 3px; }
@@ -1011,8 +1011,11 @@ function exportData() {
 }
 async function deleteMyData() {
   if (!confirm('Eliminare tutti i tuoi dati (handicap, gare, profilo) da questo dispositivo e dal cloud? Non si può annullare.')) return;
-  try { if (cloud && USER) await cloud.from('claret_data').delete().eq('user_id', USER.id); } catch (e) {}
+  clearTimeout(_saveTimer);                                  // annulla eventuali salvataggi in coda
+  S = { name: '', currentHI: null, rounds: [] };
   localStorage.removeItem(KEY);
+  // Sovrascrive la riga cloud con dati vuoti (il delete è bloccato dalle regole; l'update no)
+  try { if (cloud && USER) await cloud.from('claret_data').upsert({ user_id: USER.id, data: S, updated_at: new Date().toISOString() }); } catch (e) {}
   try { if (cloud) await cloud.auth.signOut(); } catch (e) {}
   location.reload();
 }
