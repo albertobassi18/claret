@@ -310,6 +310,7 @@
   <div class="card"><h2>Performance</h2><div id="stPerf"></div></div>
   <div class="card"><h2>Il tuo giro tipo</h2><div id="stGiro"></div></div>
   <div class="card"><h2>Prossimo handicap</h2><div id="stPredict"></div></div>
+  <div class="card"><h2>Obiettivo handicap</h2><div id="stGoal"></div></div>
   <div class="card"><h2>Analisi campi</h2><div id="stCampi"></div></div>
   <div class="card"><h2>Attività nel tempo</h2><div id="stAttiv"></div></div>
 </section>
@@ -1020,6 +1021,49 @@ const MESI = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','
 function yearOf(r){ return r.d.split('/')[2]; }
 function monthOf(r){ return +r.d.split('/')[1]; }
 function statBox(v,l){ return `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`; }
+// Campo di riferimento per tradurre l'obiettivo in colpi/punti (il tuo club dal profilo, o un campo tipo)
+function refCourse() {
+  const tgt = (S.club || '').trim().toLowerCase();
+  const club = tgt ? COURSE_DB.find(c => c.name.toLowerCase() === tgt) : null;
+  if (club && club.courses[0] && club.courses[0].tees[0]) {
+    const co = club.courses[0], t = co.tees[0];
+    return { name: club.name, tee: t[0], cr: +t[1], slope: +t[2], par: +t[3] };
+  }
+  return { name: null, tee: null, cr: 71.5, slope: 125, par: 72 };
+}
+// Piano per raggiungere un obiettivo di handicap in N mesi
+function goalPlan(target, months) {
+  const rows = sortedResults();
+  const cnt = rows.filter(r => r.sd !== '' && !isNaN(+r.sd) && !r.noHcp);
+  const cur = officialHI();
+  if (cnt.length < 5 || cur == null) return null;
+  const last20 = cnt.slice(0,20).map(r=>+r.sd);
+  const mean = last20.reduce((a,b)=>a+b,0)/last20.length;
+  const shape = last20.map(x => x - mean);   // forma/variabilità reale dei tuoi giri
+  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth()-months);
+  const N = cnt.filter(r => new Date(parseDate(r.d)) >= cutoff).length;   // gare nel periodo passato
+  const nNew = Math.max(1, Math.min(N, 20));
+  const keep = N < 20 ? last20.slice(0, 20 - N) : [];
+  const low = lowHI365();
+  const projIndex = mu => {
+    const proj = [];
+    for (let i=0;i<nNew;i++) proj.push(mu + shape[i % shape.length]);
+    return WHS.handicapIndex(proj.concat(keep).slice(0,20), low);
+  };
+  let lo=-8, hi=54, mu=mean;
+  for (let it=0; it<40; it++) { mu=(lo+hi)/2; if (projIndex(mu) > target) hi=mu; else lo=mu; }
+  const ref = refCourse();
+  const ags = mu*ref.slope/113 + ref.cr;
+  const ph = WHS.courseHandicap(cur, ref.slope, ref.cr, ref.par);
+  return { N, months, cur, target, requiredMu: mu, mean, projCur: projIndex(mean), ref, gross: Math.round(ags), stbl: Math.round(ref.par + ph + 36 - ags) };
+}
+function setGoal() {
+  const t = parseFloat($('goalTarget').value), m = parseInt($('goalMonths').value,10) || 6;
+  if (isNaN(t)) { alert('Scrivi l\'handicap che vuoi raggiungere.'); return; }
+  S.goal = { target: Math.round(t*10)/10, months: m, start: officialHI(), date: new Date().toISOString() };
+  save(); renderStats();
+}
+function clearGoal() { delete S.goal; save(); renderStats(); }
 function renderStats() {
   if (!$('stRecord')) return;
   const rows = sortedResults();
@@ -1030,7 +1074,7 @@ function renderStats() {
   const yNow = String(new Date().getFullYear());
 
   if (!cnt.length && !idxRows.length) {
-    ['stRecord','stBadge','stPerf','stGiro','stPredict','stCampi','stAttiv'].forEach(id => $(id).innerHTML = '<p class="note">Aggiungi o importa qualche gara per vedere le statistiche.</p>');
+    ['stRecord','stBadge','stPerf','stGiro','stPredict','stGoal','stCampi','stAttiv'].forEach(id => $(id).innerHTML = '<p class="note">Aggiungi o importa qualche gara per vedere le statistiche.</p>');
     return;
   }
 
@@ -1152,6 +1196,47 @@ function renderStats() {
       <p class="note">Se giochi come nelle ultime gare, il tuo Handicap Index si muoverà probabilmente in questo intervallo (ora sei a <b>${cur.toFixed(1)}</b>). È una stima indicativa, non un calcolo ufficiale.</p>`;
   }
   $('stPredict').innerHTML = pred;
+
+  // ---- OBIETTIVO HANDICAP ----
+  let goalHtml;
+  if (S.goal && S.goal.target != null) {
+    const plan = goalPlan(S.goal.target, S.goal.months);
+    if (!plan) goalHtml = '<p class="note">Servono un po\' di gare per calcolare l\'obiettivo.</p>';
+    else {
+      const start = (S.goal.start != null) ? S.goal.start : plan.cur;
+      const done = (start > plan.target) ? Math.max(0, Math.min(100, Math.round(100*(start - plan.cur)/(start - plan.target)))) : 0;
+      const remain = plan.cur - plan.target;
+      const improveNeeded = plan.mean - plan.requiredMu;
+      let verdict;
+      if (plan.target >= plan.cur - 0.05) verdict = 'È pari o sopra il tuo indice attuale: più che un obiettivo, è mantenerlo.';
+      else if (plan.requiredMu >= plan.mean - 0.3) verdict = 'Alla tua portata: ti basta continuare sui tuoi livelli.';
+      else if (improveNeeded <= 2) verdict = `Impegnativo ma fattibile: devi migliorare di circa <b>${improveNeeded.toFixed(1)}</b> colpi a giro.`;
+      else verdict = `Molto ambizioso per ${plan.months} mesi con il tuo ritmo (~${plan.N} gare): servirebbe un salto di ~<b>${improveNeeded.toFixed(1)}</b> colpi a giro.`;
+      if (plan.N < 3) verdict += ' Hai giocato poche gare nel periodo, la finestra si rinnova poco.';
+      const scoreLine = plan.target < plan.cur - 0.05
+        ? `<p class="note">Per arrivarci ti servono giri intorno a <b>${plan.gross} colpi</b>${plan.ref.name?` a ${plan.ref.name} (${plan.ref.tee})`:' su un campo tipo'} — circa <b>${plan.stbl} punti</b> Stableford, cioè uno score differential intorno a <b>${plan.requiredMu.toFixed(1)}</b>.</p>` : '';
+      goalHtml = `
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <div><span style="font-size:2rem;font-weight:800;color:var(--blue)">${plan.target.toFixed(1)}</span> <span class="note" style="display:inline">entro ${plan.months} mesi</span></div>
+          <div class="note">ora ${plan.cur.toFixed(1)}</div>
+        </div>
+        <div style="height:10px;border-radius:6px;background:var(--green-light);margin:8px 0 4px;overflow:hidden"><div style="height:100%;width:${done}%;background:var(--blue)"></div></div>
+        <div class="note" style="margin-top:0">${done}% del percorso${remain>0?` · ti manca ${remain.toFixed(1)}`:' · obiettivo raggiunto! 🎉'}</div>
+        ${scoreLine}
+        <p class="note"><b>${verdict}</b></p>
+        <p class="note">Se continui come adesso, tra ${plan.months} mesi saresti circa a <b>${plan.projCur.toFixed(1)}</b>.</p>
+        <p class="note" style="margin-top:8px"><a href="#" onclick="clearGoal();return false" style="color:#ce2b37">Elimina obiettivo</a></p>`;
+    }
+  } else {
+    goalHtml = `
+      <p class="note" style="margin-top:0">Imposta l'handicap che vuoi raggiungere: ti dico che giri servono per arrivarci.</p>
+      <label>Handicap obiettivo</label>
+      <input id="goalTarget" type="number" step="0.1" inputmode="decimal" placeholder="${cur!=null?'es. '+(cur-2).toFixed(1):'es. 18.0'}">
+      <label>Entro</label>
+      <select id="goalMonths"><option value="3">3 mesi</option><option value="6" selected>6 mesi</option><option value="12">12 mesi</option></select>
+      <button class="btn" style="width:100%" onclick="setGoal()">Imposta obiettivo</button>`;
+  }
+  $('stGoal').innerHTML = goalHtml;
 
   // ---- ANALISI CAMPI ----
   const byClub = {};
