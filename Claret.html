@@ -53,8 +53,10 @@
   .row { display: flex; gap: 10px; flex-wrap: wrap; }
   .row > * { flex: 1; min-width: 120px; }
   label { display: block; font-size: .74rem; color: var(--muted); margin: 8px 0 3px; }
-  input, select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: .95rem; background: #fff; }
-  textarea { width: 100%; min-height: 90px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: .8rem; font-family: monospace; }
+  /* font-size 16px: evita lo zoom automatico di iOS al focus (che sganciava header/menù fissi) */
+  input, select, textarea { font-size: 16px; }
+  input, select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+  textarea { width: 100%; min-height: 90px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-family: monospace; }
   button.btn { background: var(--blue); color: #fff; border: none; border-radius: 12px; padding: 13px 18px; font-size: .98rem; font-weight: 600; cursor: pointer; margin-top: 12px; }
   button.btn:active { transform: scale(.98); }
   button.btn.secondary { background: #efe9dd; color: var(--text); }
