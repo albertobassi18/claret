@@ -467,9 +467,9 @@ const WHS = {
   },
   courseHandicap(hi, slope, cr, par) { return Math.round(hi * (slope / 113) + (cr - par)); },
   playingHandicap(ch, pct) { return Math.round(ch * pct / 100); },
-  // Differenziale atteso per le 9 buche non giocate (approssima la tabella WHS Expected Score Differential,
-  // validata sui dati FIG reali: HI 20.2 -> ~11.8, gara reale sd 22.0)
-  expectedSD9(hi) { return 0.56 * hi + 0.6; },
+  // Differenziale atteso per le 9 buche non giocate (tabella WHS Expected Score Differential).
+  // Calibrato su dati FIG reali: HI 14 -> 8.5, HI 22.5 -> 12.9, HI 23.2 -> 13.2.
+  expectedSD9(hi) { return 0.51 * hi + 1.4; },
   // Da una gara inserita a Stableford ricava score, handicap di gioco e differenziale (18-buche-equivalente),
   // gestendo correttamente sia 18 sia 9 buche col metodo ufficiale WHS.
   roundFromStableford(hi, cr, slope, par, stbl) {
