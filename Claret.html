@@ -156,7 +156,8 @@
   <button data-tab="play"><svg viewBox="0 0 24 24"><path d="M6 21V4l11 3-11 3"/><path d="M6 21h5"/></svg>Gioco</button>
   <button data-tab="sim"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>Simula</button>
   <button data-tab="rounds"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>Gare</button>
-  <button data-tab="stats"><svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V5M19 20v-6"/></svg>Statistiche</button>
+  <button data-tab="stats"><svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V5M19 20v-6"/></svg>Stats</button>
+  <button data-tab="amici"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c0-3.3 2.5-5 5.5-5s5.5 1.7 5.5 5"/><circle cx="17.5" cy="9" r="2.2"/><path d="M17.5 13c2.4 0 3.9 1.4 3.9 4"/></svg>Amici</button>
 </nav>
 <main>
 
@@ -317,6 +318,33 @@
   <div class="card"><h2>Attività nel tempo</h2><div id="stAttiv"></div></div>
 </section>
 
+<!-- ===== AMICI ===== -->
+<section id="tab-amici" class="hidden">
+  <div class="card">
+    <h2>Il tuo codice amico</h2>
+    <p class="note" style="margin-top:0">Condividi questo codice (o il link) con gli amici: chi lo inserisce si collega a te.</p>
+    <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+      <div id="myCode" style="font-family:var(--serif);font-size:1.8rem;letter-spacing:3px;color:var(--blue)">—</div>
+      <button class="btn secondary" style="margin:0" onclick="shareCode()">Condividi</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Aggiungi un amico</h2>
+    <label>Codice dell'amico</label>
+    <input id="friendCode" type="text" placeholder="es. AB7K9P" autocomplete="off" style="text-transform:uppercase">
+    <button class="btn" style="width:100%" onclick="addFriendByCode()">Aggiungi</button>
+    <span class="note" id="friendMsg" style="display:block;text-align:center;margin-top:6px"></span>
+  </div>
+  <div class="card">
+    <h2>Classifica amici</h2>
+    <div class="pill-row" id="lbSort" style="margin:0 0 10px">
+      <span class="pill sel" data-s="index">Handicap più basso</span>
+      <span class="pill" data-s="drop">Sceso di più (mese)</span>
+      <span class="pill" data-s="rounds">Più gare</span>
+    </div>
+    <div id="leaderboard"></div>
+  </div>
+</section>
 
 <div id="authOverlay" class="landing hidden">
   <div class="landing-inner">
@@ -570,7 +598,8 @@ function lowHI365() {
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   document.querySelectorAll('nav button').forEach(x => x.classList.remove('active'));
   b.classList.add('active');
-  ['dash','play','sim','rounds','stats'].forEach(t => $('tab-' + t).classList.toggle('hidden', t !== b.dataset.tab));
+  ['dash','play','sim','rounds','stats','amici'].forEach(t => $('tab-' + t).classList.toggle('hidden', t !== b.dataset.tab));
+  if (b.dataset.tab === 'amici') renderAmici();
 });
 
 // ============ DASHBOARD ============
@@ -831,6 +860,7 @@ function addRound() {
   setTimeout(()=>{ $('addMsg').textContent=''; }, 2500);
   closeAddModal();
   renderAll();
+  syncProfile();
 }
 function openAddModal() {
   if (!$('addDate').value) { const t=new Date(); $('addDate').value = t.toISOString().slice(0,10); }
@@ -976,6 +1006,7 @@ async function saveProfileFull() {
   if (cloud && USER) { try { await cloud.auth.updateUser({ data: { full_name: S.name, tessera: S.tessera, club: S.club } }); } catch (e) {} }
   $('pfMsg').textContent = 'Salvato ✓';
   renderAll();
+  syncProfile();
   setTimeout(() => { $('pfMsg').textContent = ''; }, 2000);
 }
 async function changePassword() {
@@ -1025,6 +1056,84 @@ const MESI = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','
 function yearOf(r){ return r.d.split('/')[2]; }
 function monthOf(r){ return +r.d.split('/')[1]; }
 function statBox(v,l){ return `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`; }
+// ============ AMICI + CLASSIFICA ============
+function genCode(){ const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<6;i++) s+=a[Math.floor(Math.random()*a.length)]; return s; }
+function computeShareStats(){
+  const rows = sortedResults();
+  const cnt = rows.filter(r => r.sd !== '' && !isNaN(+r.sd) && !r.noHcp);
+  const idxRows = rows.filter(r => r.inw !== '');
+  const cur = officialHI();
+  const bestIdx = idxRows.length ? Math.min(...idxRows.map(r=>+r.inw)) : cur;
+  const now = new Date(), monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const before = idxRows.filter(r => new Date(parseDate(r.d)) < monthStart);
+  const startIdx = before.length ? +before[0].inw : (idxRows.length ? +idxRows[idxRows.length-1].inw : cur);
+  const drop = (cur!=null && startIdx!=null) ? Math.round((startIdx - cur)*10)/10 : 0;
+  return { current_index: cur, best_sd: (bestIdx!=null ? bestIdx : null), rounds_count: cnt.length, drop_month: drop };
+}
+async function syncProfile(){
+  if (!cloud || !USER) return;
+  if (!S.code) { S.code = genCode(); save(); }
+  const st = computeShareStats();
+  try {
+    const { error } = await cloud.from('profiles').upsert({
+      user_id: USER.id, name: S.name||'', club: S.club||'', code: S.code,
+      current_index: st.current_index, best_sd: st.best_sd, rounds_count: st.rounds_count, drop_month: st.drop_month,
+      updated_at: new Date().toISOString()
+    });
+    if (error && /duplicate|unique/i.test(error.message||'')) { S.code = genCode(); save(); return syncProfile(); }
+  } catch(e){}
+}
+async function addFriendByCode(){
+  const code = ($('friendCode').value||'').trim().toUpperCase();
+  if (!code) return;
+  if (!cloud || !USER) { $('friendMsg').textContent = 'Disponibile con account online.'; return; }
+  $('friendMsg').textContent = 'Aggiungo…';
+  const { data, error } = await cloud.rpc('add_friend_by_code', { p_code: code });
+  if (error) { $('friendMsg').textContent = /valido/i.test(error.message)?'Codice non valido.':(/te stesso/i.test(error.message)?'È il tuo codice!':'Errore, riprova.'); return; }
+  $('friendMsg').textContent = 'Collegato a ' + (data||'un amico') + ' ✓';
+  $('friendCode').value = '';
+  loadLeaderboard();
+}
+let lbSort = 'index';
+async function loadLeaderboard(){
+  const el = $('leaderboard'); if (!el) return;
+  if (!cloud || !USER) { el.innerHTML = '<p class="note">La classifica è disponibile con l\'account online.</p>'; return; }
+  await syncProfile();
+  const { data, error } = await cloud.from('profiles').select('user_id,name,club,current_index,drop_month,rounds_count');
+  if (error) { el.innerHTML = '<p class="note">Non riesco a caricare la classifica ora.</p>'; return; }
+  renderLeaderboard(data || []);
+}
+function renderLeaderboard(list){
+  const el = $('leaderboard');
+  if (!list.length) { el.innerHTML = '<p class="note">Ancora nessun amico. Condividi il tuo codice per iniziare!</p>'; return; }
+  const key = lbSort==='drop'?'drop_month':(lbSort==='rounds'?'rounds_count':'current_index');
+  const sorted = [...list].sort((a,b)=> key==='current_index'
+    ? ((a.current_index==null?999:+a.current_index)-(b.current_index==null?999:+b.current_index))
+    : ((b[key]==null?-999:+b[key])-(a[key]==null?-999:+a[key])));
+  const me = USER ? USER.id : null;
+  el.innerHTML = '<div style="overflow-x:auto"><table><thead><tr><th></th><th>Giocatore</th><th>Hcp</th><th>Mese</th><th>Gare</th></tr></thead><tbody>'
+    + sorted.map((p,i)=>{
+        const dm = p.drop_month;
+        const dcell = (dm!=null && +dm>0) ? `<span class="down">-${(+dm).toFixed(1)}</span>` : (dm!=null && +dm<0 ? `<span class="up">+${(-dm).toFixed(1)}</span>` : '–');
+        return `<tr${p.user_id===me?' style="background:var(--green-light)"':''}><td><b>${i+1}</b></td><td><b>${p.name||'—'}</b>${p.club?`<br><span class="note" style="display:inline">${p.club}</span>`:''}</td><td><b>${p.current_index!=null?(+p.current_index).toFixed(1):'–'}</b></td><td>${dcell}</td><td>${p.rounds_count!=null?p.rounds_count:'–'}</td></tr>`;
+      }).join('') + '</tbody></table></div>';
+}
+function renderAmici(){
+  if (S.code) $('myCode').textContent = S.code;
+  document.querySelectorAll('#lbSort .pill').forEach(p => p.onclick = () => {
+    document.querySelectorAll('#lbSort .pill').forEach(x=>x.classList.remove('sel'));
+    p.classList.add('sel'); lbSort = p.dataset.s; loadLeaderboard();
+  });
+  loadLeaderboard().then(()=>{ if (S.code) $('myCode').textContent = S.code; });
+}
+function shareCode(){
+  const code = S.code || '';
+  const link = 'https://claret.golf/?amico=' + code;
+  const text = 'Aggiungimi su Claret! Il mio codice è ' + code + ' → ' + link;
+  if (navigator.share) { navigator.share({ title:'Claret', text }).catch(()=>{}); }
+  else if (navigator.clipboard) { navigator.clipboard.writeText(text).then(()=>alert('Codice e link copiati!')).catch(()=>alert('Il tuo codice: '+code)); }
+  else alert('Il tuo codice: '+code);
+}
 // Campo di riferimento per tradurre l'obiettivo in colpi/punti (il tuo club dal profilo, o un campo tipo)
 function refCourse() {
   const tgt = (S.club || '').trim().toLowerCase();
@@ -1370,6 +1479,17 @@ async function authSubmit() {
 function afterAuth() {
   document.body.classList.remove('preauth');   // ora sei dentro: mostra header + menù
   if (S.currentHI == null && (!S.rounds || S.rounds.length === 0)) openProfile(true); else renderAll();
+  syncProfile();
+  // Se arrivi da un link amico (?amico=CODICE), collega in automatico
+  try {
+    const inv = new URLSearchParams(location.search).get('amico');
+    if (inv && cloud && USER) {
+      cloud.rpc('add_friend_by_code', { p_code: inv.toUpperCase() }).then(({data,error})=>{
+        if (!error) { const b=document.querySelector('nav button[data-tab="amici"]'); if(b) b.click(); }
+      });
+      history.replaceState(null, '', location.pathname);
+    }
+  } catch(e){}
 }
 async function start() {
   if (cloud) {
