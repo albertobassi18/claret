@@ -482,8 +482,10 @@ const WHS = {
     } else {
       const ch = Math.round((hi / 2) * (slope / 113) + (cr - par)); // handicap di gioco su 9 buche
       const ags = par + ch + 18 - stbl;                             // base 18 punti per 9 buche
-      const sd9 = (113 / slope) * (ags - cr);
-      const sd = Math.round((sd9 + this.expectedSD9(hi)) * 10) / 10; // combinazione a 18 buche
+      // Metodo ufficiale FIG/WHS: differenziale 9 buche e atteso arrotondati a 1 decimale, poi sommati
+      const sd9 = Math.round((113 / slope) * (ags - cr) * 10) / 10;
+      const exp = Math.round(this.expectedSD9(hi) * 10) / 10;
+      const sd = Math.round((sd9 + exp) * 10) / 10;
       return { holes, ch, ags, sd };
     }
   }
