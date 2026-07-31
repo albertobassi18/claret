@@ -1107,7 +1107,8 @@ function computeShareStats(){
   // ultimo giro (qualsiasi risultato)
   const last = rows[0] || null;
   const lastDate = last ? parseDate(last.d) : null;
-  const lastCourse = last ? ((last.g && last.g!=='Gara' ? last.g : '') || last.club || '') : '';
+  const gGeneric = g => !g || g==='Gara' || /^\d+\s*buche$/i.test(g.trim());
+  const lastCourse = last ? (!gGeneric(last.g) ? last.g : (last.club || '')) : '';
   // gare e miglior score differential del mese corrente
   const monthCnt = cnt.filter(r => new Date(parseDate(r.d)) >= monthStart);
   const roundsMonth = monthCnt.length;
