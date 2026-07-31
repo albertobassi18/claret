@@ -86,7 +86,30 @@
   .stat { background: var(--green-light); border-radius: 10px; padding: 10px; text-align: center; }
   .stat .v { font-size: 1.25rem; font-weight: 800; color: var(--green); }
   .stat .l { font-size: .64rem; color: var(--muted); text-transform: uppercase; }
-  .up { color: var(--red); } .down { color: var(--grass); }
+  .up { color: var(--red); } .down { color: var(--grass); } .flat { color: var(--muted); }
+  /* ---- Classifica amici ---- */
+  .callout { background: var(--green-light); border-radius: 12px; padding: 11px 14px; font-size: .92rem; color: var(--green); margin-bottom: 12px; }
+  .badge-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .badge-chip { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 9px 8px; text-align: center; line-height: 1.25; }
+  .badge-chip .be { display: block; font-size: 1.1rem; }
+  .badge-chip .bt { display: block; font-size: .58rem; text-transform: uppercase; letter-spacing: .3px; color: var(--muted); margin: 2px 0 1px; }
+  .badge-chip b { font-size: .82rem; color: var(--green); }
+  .badge-chip .bv { display: block; font-size: .68rem; color: var(--muted); }
+  .lb-row { display: flex; align-items: center; gap: 11px; padding: 10px 4px; border-bottom: 1px solid var(--border); }
+  .lb-row:last-child { border-bottom: 0; }
+  .lb-row.me { background: var(--green-light); border-radius: 12px; padding: 10px 10px; border-bottom: 0; }
+  .lb-rank { width: 30px; text-align: center; flex: 0 0 30px; }
+  .lb-rank .med { font-size: 1.3rem; } .lb-rank .rk { font-weight: 800; color: var(--muted); font-size: 1rem; }
+  .lb-main { flex: 1; min-width: 0; }
+  .lb-name { font-weight: 700; color: var(--ink, #1a1a1a); font-size: .96rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lb-sub { font-size: .74rem; color: var(--muted); margin-top: 2px; }
+  .lb-hcp { text-align: right; flex: 0 0 auto; }
+  .lb-hcp .v { font-family: var(--serif); font-size: 1.35rem; font-weight: 800; color: var(--blue); line-height: 1; }
+  .lb-hcp .l { font-size: .58rem; text-transform: uppercase; color: var(--muted); }
+  .feed-item { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .88rem; }
+  .feed-item:last-child { border-bottom: 0; }
+  .feed-item .ft { flex: 1; min-width: 0; }
+  .feed-when { font-size: .68rem; color: var(--muted); white-space: nowrap; flex: 0 0 auto; }
   .hidden { display: none; }
   .overlay { position: fixed; inset: 0; background: rgba(20,45,31,.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
   .overlay.hidden { display: none; }
@@ -336,7 +359,13 @@
     <span class="note" id="friendMsg" style="display:block;text-align:center;margin-top:6px"></span>
   </div>
   <div class="card">
+    <h2>Ultime dagli amici</h2>
+    <div id="lbFeed"><p class="note" style="margin:0">Carico le novità…</p></div>
+  </div>
+  <div class="card">
     <h2>Classifica amici</h2>
+    <div id="lbCallout"></div>
+    <div id="lbBadges"></div>
     <div class="pill-row" id="lbSort" style="margin:0 0 10px">
       <span class="pill sel" data-s="index">Handicap più basso</span>
       <span class="pill" data-s="drop">Sceso di più (mese)</span>
@@ -1064,11 +1093,40 @@ function computeShareStats(){
   const idxRows = rows.filter(r => r.inw !== '');
   const cur = officialHI();
   const bestIdx = idxRows.length ? Math.min(...idxRows.map(r=>+r.inw)) : cur;
+  // data in cui è stato raggiunto il miglior handicap (per il feed "nuovo record")
+  let bestIdxDate = null;
+  if (bestIdx != null) {
+    const bir = idxRows.filter(r => +r.inw === bestIdx)
+      .sort((a,b)=>parseDate(b.d).localeCompare(parseDate(a.d)))[0];
+    if (bir) bestIdxDate = parseDate(bir.d);
+  }
   const now = new Date(), monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const before = idxRows.filter(r => new Date(parseDate(r.d)) < monthStart);
   const startIdx = before.length ? +before[0].inw : (idxRows.length ? +idxRows[idxRows.length-1].inw : cur);
   const drop = (cur!=null && startIdx!=null) ? Math.round((startIdx - cur)*10)/10 : 0;
-  return { current_index: cur, best_sd: (bestIdx!=null ? bestIdx : null), rounds_count: cnt.length, drop_month: drop };
+  // ultimo giro (qualsiasi risultato)
+  const last = rows[0] || null;
+  const lastDate = last ? parseDate(last.d) : null;
+  const lastCourse = last ? ((last.g && last.g!=='Gara' ? last.g : '') || last.club || '') : '';
+  // gare e miglior score differential del mese corrente
+  const monthCnt = cnt.filter(r => new Date(parseDate(r.d)) >= monthStart);
+  const roundsMonth = monthCnt.length;
+  const bestSdMonth = monthCnt.length ? Math.round(Math.min(...monthCnt.map(r=>+r.sd))*10)/10 : null;
+  // forma: media ultimi 3 SD vs 4 precedenti (SD più basso = meglio)
+  const sds = cnt.map(r=>+r.sd);
+  let form = 0;
+  if (sds.length >= 5) {
+    const recent = sds.slice(0,3).reduce((a,b)=>a+b,0)/3;
+    const prevArr = sds.slice(3,7), prev = prevArr.reduce((a,b)=>a+b,0)/prevArr.length;
+    if (recent < prev - 0.3) form = 1;        // in forma
+    else if (recent > prev + 0.3) form = -1;  // fuori forma
+  }
+  return {
+    current_index: cur, best_sd: (bestIdx!=null ? bestIdx : null),
+    rounds_count: cnt.length, drop_month: drop,
+    form, last_round_date: lastDate, last_round_course: lastCourse,
+    best_sd_month: bestSdMonth, rounds_month: roundsMonth, best_sd_date: bestIdxDate
+  };
 }
 async function syncProfile(){
   if (!cloud || !USER) return;
@@ -1078,6 +1136,8 @@ async function syncProfile(){
     const { error } = await cloud.from('profiles').upsert({
       user_id: USER.id, name: S.name||'', club: S.club||'', code: S.code,
       current_index: st.current_index, best_sd: st.best_sd, rounds_count: st.rounds_count, drop_month: st.drop_month,
+      form: st.form, last_round_date: st.last_round_date, last_round_course: st.last_round_course,
+      best_sd_month: st.best_sd_month, rounds_month: st.rounds_month, best_sd_date: st.best_sd_date,
       updated_at: new Date().toISOString()
     });
     if (error && /duplicate|unique/i.test(error.message||'')) { S.code = genCode(); save(); return syncProfile(); }
@@ -1099,24 +1159,97 @@ async function loadLeaderboard(){
   const el = $('leaderboard'); if (!el) return;
   if (!cloud || !USER) { el.innerHTML = '<p class="note">La classifica è disponibile con l\'account online.</p>'; return; }
   await syncProfile();
-  const { data, error } = await cloud.from('profiles').select('user_id,name,club,current_index,drop_month,rounds_count');
+  const { data, error } = await cloud.from('profiles').select('user_id,name,club,code,current_index,drop_month,rounds_count,form,last_round_date,last_round_course,best_sd_month,rounds_month,best_sd_date');
   if (error) { el.innerHTML = '<p class="note">Non riesco a caricare la classifica ora.</p>'; return; }
   renderLeaderboard(data || []);
+  renderFeed(data || []);
 }
+function nameOf(p){ return (p.name && p.name.trim()) || (p.club && p.club.trim()) || ('Giocatore ' + (p.code||'')); }
+function firstName(p){ return nameOf(p).split(' ')[0]; }
+function fmtIdx(v){ return v!=null ? (+v).toFixed(1) : '–'; }
+function relTime(ds){ if(!ds) return ''; const n=Math.round((new Date()-new Date(ds))/86400000); if(n<=0)return 'oggi'; if(n===1)return 'ieri'; if(n<7)return n+' giorni fa'; if(n<14)return '1 sett. fa'; return Math.floor(n/7)+' sett. fa'; }
 function renderLeaderboard(list){
-  const el = $('leaderboard');
-  if (!list.length) { el.innerHTML = '<p class="note">Ancora nessun amico. Condividi il tuo codice per iniziare!</p>'; return; }
+  const el = $('leaderboard'), cal = $('lbCallout'), bad = $('lbBadges');
+  if (!list.length) {
+    el.innerHTML = '<p class="note">Ancora nessun amico. Condividi il tuo codice per iniziare!</p>';
+    if (cal) cal.innerHTML=''; if (bad) bad.innerHTML=''; return;
+  }
+  const me = USER ? USER.id : null;
+  const my = list.find(p=>p.user_id===me);
   const key = lbSort==='drop'?'drop_month':(lbSort==='rounds'?'rounds_count':'current_index');
   const sorted = [...list].sort((a,b)=> key==='current_index'
     ? ((a.current_index==null?999:+a.current_index)-(b.current_index==null?999:+b.current_index))
     : ((b[key]==null?-999:+b[key])-(a[key]==null?-999:+a[key])));
-  const me = USER ? USER.id : null;
-  el.innerHTML = '<div style="overflow-x:auto"><table><thead><tr><th></th><th>Giocatore</th><th>Hcp</th><th>Mese</th><th>Gare</th></tr></thead><tbody>'
-    + sorted.map((p,i)=>{
-        const dm = p.drop_month;
-        const dcell = (dm!=null && +dm>0) ? `<span class="down">-${(+dm).toFixed(1)}</span>` : (dm!=null && +dm<0 ? `<span class="up">+${(-dm).toFixed(1)}</span>` : '–');
-        return `<tr${p.user_id===me?' style="background:var(--green-light)"':''}><td><b>${i+1}</b></td><td><b>${p.name||'—'}</b>${p.club?`<br><span class="note" style="display:inline">${p.club}</span>`:''}</td><td><b>${p.current_index!=null?(+p.current_index).toFixed(1):'–'}</b></td><td>${dcell}</td><td>${p.rounds_count!=null?p.rounds_count:'–'}</td></tr>`;
-      }).join('') + '</tbody></table></div>';
+  // ---- Frase personale ----
+  if (cal) {
+    let html='';
+    const myPos = sorted.findIndex(p=>p.user_id===me);
+    if (myPos>=0) {
+      let msg = `Sei <b>${myPos+1}º</b> su ${sorted.length}`;
+      if (myPos===0) msg += ' — sei in testa! 🏆';
+      else if (lbSort==='index' && my && my.current_index!=null) {
+        const above = sorted[myPos-1];
+        const gap = Math.round(((+my.current_index)-(+above.current_index))*10)/10;
+        if (!isNaN(gap) && gap>0) msg += ` — ti manca <b>${gap.toFixed(1)}</b> per superare ${firstName(above)}`;
+      }
+      html = `<div class="callout">${msg}</div>`;
+    }
+    cal.innerHTML = html;
+  }
+  // ---- Badge del mese ----
+  if (bad) {
+    const chips=[];
+    const active=[...list].filter(p=>+p.rounds_month>0).sort((a,b)=>b.rounds_month-a.rounds_month)[0];
+    if (active) chips.push(`<div class="badge-chip"><span class="be">🏌️</span><span class="bt">Più attivo</span><b>${firstName(active)}</b><span class="bv">${active.rounds_month} gare</span></div>`);
+    const bestG=[...list].filter(p=>p.best_sd_month!=null).sort((a,b)=>a.best_sd_month-b.best_sd_month)[0];
+    if (bestG) chips.push(`<div class="badge-chip"><span class="be">🎯</span><span class="bt">Miglior gara</span><b>${firstName(bestG)}</b><span class="bv">SD ${(+bestG.best_sd_month).toFixed(1)}</span></div>`);
+    const dropped=[...list].filter(p=>+p.drop_month>0).sort((a,b)=>b.drop_month-a.drop_month)[0];
+    if (dropped) chips.push(`<div class="badge-chip"><span class="be">📉</span><span class="bt">Sceso di più</span><b>${firstName(dropped)}</b><span class="bv">-${(+dropped.drop_month).toFixed(1)}</span></div>`);
+    bad.innerHTML = chips.length ? `<div class="badge-row">${chips.join('')}</div>` : '';
+  }
+  // ---- Lista a schede ----
+  const medals=['🥇','🥈','🥉'];
+  el.innerHTML = sorted.map((p,i)=>{
+    const isMe = p.user_id===me;
+    const rank = i<3 ? `<span class="med">${medals[i]}</span>` : `<span class="rk">${i+1}</span>`;
+    const dm = p.drop_month;
+    const move = (dm!=null && +dm>0) ? `<span class="down">▼ ${(+dm).toFixed(1)}</span>`
+      : (dm!=null && +dm<0 ? `<span class="up">▲ ${(-dm).toFixed(1)}</span>` : `<span class="flat">–</span>`);
+    const form = +p.form>0 ? ' <span title="in forma">🔥</span>' : (+p.form<0 ? ' <span title="fuori forma">❄️</span>' : '');
+    let gap='';
+    if (isMe) gap='<span class="flat">tu</span>';
+    else if (my && my.current_index!=null && p.current_index!=null) {
+      const d = Math.round(((+p.current_index)-(+my.current_index))*10)/10;
+      gap = d<0 ? `<span class="up">${d.toFixed(1)} da te</span>` : (d>0 ? `<span class="down">+${d.toFixed(1)} da te</span>` : `<span class="flat">pari a te</span>`);
+    }
+    return `<div class="lb-row${isMe?' me':''}">
+      <div class="lb-rank">${rank}</div>
+      <div class="lb-main">
+        <div class="lb-name">${nameOf(p)}${form}</div>
+        <div class="lb-sub">${move} mese · ${p.rounds_count!=null?p.rounds_count:'–'} gare · ${gap}</div>
+      </div>
+      <div class="lb-hcp"><div class="v">${fmtIdx(p.current_index)}</div><div class="l">hcp</div></div>
+    </div>`;
+  }).join('');
+}
+function renderFeed(list){
+  const el = $('lbFeed'); if(!el) return;
+  const days = ds => { if(!ds) return 999; return Math.round((new Date()-new Date(ds))/86400000); };
+  const ev=[];
+  (list||[]).forEach(p=>{
+    const nm = firstName(p);
+    if (p.best_sd_date && days(p.best_sd_date)<=14 && p.current_index!=null)
+      ev.push({d:p.best_sd_date, t:`🏆 <b>${nm}</b> nuovo record: handicap ${(+p.current_index).toFixed(1)}`});
+    else if (p.last_round_date && days(p.last_round_date)<=10)
+      ev.push({d:p.last_round_date, t:`⛳ <b>${nm}</b> ha giocato${p.last_round_course?' a '+p.last_round_course:''}`});
+    if (+p.drop_month>=0.5)
+      ev.push({d:(p.last_round_date||new Date().toISOString().slice(0,10)), t:`📉 <b>${nm}</b> è sceso di ${(+p.drop_month).toFixed(1)} questo mese`});
+  });
+  ev.sort((a,b)=> (b.d||'').localeCompare(a.d||''));
+  const top = ev.slice(0,6);
+  el.innerHTML = top.length
+    ? top.map(e=>`<div class="feed-item"><span class="ft">${e.t}</span><span class="feed-when">${relTime(e.d)}</span></div>`).join('')
+    : '<p class="note" style="margin:0">Nessuna novità recente. Gioca una gara o aggiungi amici!</p>';
 }
 function renderAmici(){
   if (S.code) $('myCode').textContent = S.code;
