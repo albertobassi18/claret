@@ -141,6 +141,12 @@
   .chl-rank { width: 26px; text-align: center; flex: 0 0 26px; font-size: 1.05rem; }
   .chl-name { flex: 1; min-width: 0; font-size: .92rem; color: var(--ink, #1a1a1a); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .chl-val { font-family: var(--serif); font-size: 1.05rem; color: var(--blue); flex: 0 0 auto; }
+  .ch-sec { font-size: .68rem; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin: 18px 2px 8px; }
+  .ch-item.concluded { background: #faf7f0; }
+  .ch-new { background: #ce2b37; color: #fff; font-size: .58rem; padding: 2px 7px; border-radius: 10px; vertical-align: middle; margin-left: 7px; text-transform: uppercase; letter-spacing: .4px; }
+  .ch-foot-win { text-align: center; margin-top: 8px; font-weight: 700; color: var(--green); font-size: .92rem; }
+  .lb-tro { font-size: .78rem; color: #a07c1f; white-space: nowrap; }
+  .pf-hwins { margin-top: 8px; font-size: .85rem; color: #e8d29a; }
   /* ---- Scheda profilo a schermo pieno ---- */
   .pf-screen { position: fixed; inset: 0; background: var(--bg); z-index: 100; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .pf-screen.hidden { display: none; }
@@ -563,6 +569,7 @@
     <div class="pf-hname" id="pfHeroName">—</div>
     <div class="pf-hsub" id="pfHeroSub"></div>
     <div class="pf-hbadge"><span>Handicap</span><b id="pfHeroHcp">–</b></div>
+    <div id="pfHeroWins" class="pf-hwins"></div>
   </div>
   <div class="pf-body">
     <div class="pf-stats">
@@ -1175,6 +1182,7 @@ function renderProfileView(){
   $('pfHeroName').textContent = S.name || 'Il tuo profilo';
   $('pfHeroSub').textContent = [S.club, S.tessera ? ('Tessera ' + S.tessera) : ''].filter(Boolean).join(' · ');
   $('pfHeroHcp').textContent = hi!=null ? hi.toFixed(1) : (S.currentHI!=null ? (+S.currentHI).toFixed(1) : '–');
+  const w = S.wins||0; $('pfHeroWins').textContent = w>0 ? ('🏆 ' + w + (w===1 ? ' sfida vinta' : ' sfide vinte')) : '';
   const rows = sortedResults();
   const cnt = rows.filter(r => r.sd !== '' && !isNaN(+r.sd) && !r.noHcp);
   $('pfStGare').textContent = cnt.length || '–';
@@ -1338,7 +1346,7 @@ async function loadLeaderboard(){
   const el = $('leaderboard'); if (!el) return;
   if (!cloud || !USER) { el.innerHTML = '<p class="note">La classifica è disponibile con l\'account online.</p>'; return; }
   await syncProfile();
-  const { data, error } = await cloud.from('profiles').select('user_id,name,club,code,current_index,drop_month,rounds_count,form,last_round_date,last_round_course,best_sd_month,rounds_month,best_sd_date');
+  const { data, error } = await cloud.from('profiles').select('user_id,name,club,code,current_index,drop_month,rounds_count,form,last_round_date,last_round_course,best_sd_month,rounds_month,best_sd_date,wins');
   if (error) { el.innerHTML = '<p class="note">Non riesco a caricare la classifica ora.</p>'; return; }
   renderLeaderboard(data || []);
   renderFeed(data || []);
@@ -1404,7 +1412,7 @@ function renderLeaderboard(list){
     return `<div class="lb-row${isMe?' me':''}">
       <div class="lb-rank">${rank}</div>
       <div class="lb-main">
-        <div class="lb-name">${nameOf(p)}${form}</div>
+        <div class="lb-name">${nameOf(p)}${form}${(+p.wins>0)?` <span class="lb-tro">🏆${p.wins}</span>`:''}</div>
         <div class="lb-sub">${move} mese · ${p.rounds_count!=null?p.rounds_count:'–'} gare · ${gap}</div>
       </div>
       <div class="lb-hcp"><div class="v">${fmtIdx(p.current_index)}</div><div class="l">hcp</div></div>
@@ -1431,12 +1439,29 @@ function renderFeed(list){
     : '<p class="note" style="margin:0">Nessuna novità recente. Gioca una gara o aggiungi amici!</p>';
 }
 let amiciView = 'lb';
+function seenResults(){ try { return JSON.parse(localStorage.getItem('claret_seen_results')||'[]'); } catch(e){ return []; } }
+function markResultsSeen(ids){ const s = new Set(seenResults()); ids.forEach(i => s.add(i)); localStorage.setItem('claret_seen_results', JSON.stringify([...s])); }
+function myConcludedIds(){
+  if (!USER) return [];
+  const today = new Date().toISOString().slice(0,10);
+  return (CH.list||[]).filter(c => { const mine=(CH.parts[c.id]||[]).find(p=>p.user_id===USER.id); return mine && mine.status==='accepted' && c.end_date < today; }).map(c=>c.id);
+}
+function invitesCount(){ return Object.values(CH.parts||{}).reduce((n,arr)=> n + arr.filter(p=>p.user_id===(USER&&USER.id) && p.status==='invited').length, 0); }
 function switchAmiciView(v){
   amiciView = v;
   document.querySelectorAll('#amiciNav .pill').forEach(p => p.classList.toggle('sel', p.dataset.v === v));
   $('amView-lb').classList.toggle('hidden', v !== 'lb');
   $('amView-ch').classList.toggle('hidden', v !== 'ch');
   $('amView-feed').classList.toggle('hidden', v !== 'feed');
+  if (v === 'ch') {
+    const conc = myConcludedIds();
+    if (conc.length) {
+      markResultsSeen(conc);
+      const inv = invitesCount(); setAmiciDot(inv);
+      const sd = $('amChDot'); if (sd) sd.classList.toggle('hidden', inv <= 0);
+      renderChallenges();
+    }
+  }
 }
 function toggleInvite(){ $('amInvite').classList.toggle('hidden'); if (S.code) $('myCode').textContent = S.code; }
 function renderAmici(){
@@ -1479,7 +1504,8 @@ function buildCardCanvas(){
   x.fillStyle='#b08d3f'; x.font='400 38px Arial, sans-serif'; x.fillText('HANDICAP INDEX', W/2, 730);
   x.fillStyle='#f9f4ee'; x.font='600 210px Georgia, serif'; x.fillText(hi!=null ? hi.toFixed(1) : '—', W/2, 910);
   const stats=[['Gare', cnt.length||'–'], ['Miglior SD', bestSd!=null ? bestSd.toFixed(1) : '–']];
-  if (st.drop_month>0) stats.push(['Sceso (mese)', '-'+st.drop_month.toFixed(1)]);
+  if ((S.wins||0) > 0) stats.push(['Sfide vinte', S.wins]);
+  else if (st.drop_month>0) stats.push(['Sceso (mese)', '-'+st.drop_month.toFixed(1)]);
   const n=stats.length, gap=W/(n+1);
   stats.forEach((s,i)=>{ const px=gap*(i+1);
     x.fillStyle='#f9f4ee'; x.font='600 66px Georgia, serif'; x.fillText(String(s[1]), px, 1085);
@@ -1506,7 +1532,20 @@ let CH = { list: [], parts: {}, names: {} };
 function setAmiciDot(n){ const d = $('amiciDot'); if (!d) return; if (n > 0) d.classList.remove('hidden'); else d.classList.add('hidden'); }
 async function checkChallengeNotifs(){
   if (!cloud || !USER) { setAmiciDot(0); return; }
-  try { const { data } = await cloud.from('challenge_participants').select('challenge_id').eq('user_id', USER.id).eq('status', 'invited'); setAmiciDot((data||[]).length); } catch(e){}
+  try {
+    const { data: parts } = await cloud.from('challenge_participants').select('challenge_id,status').eq('user_id', USER.id);
+    const invited = (parts||[]).filter(p => p.status==='invited').length;
+    const acceptedIds = (parts||[]).filter(p => p.status==='accepted').map(p => p.challenge_id);
+    let unseen = 0;
+    if (acceptedIds.length) {
+      const { data: chs } = await cloud.from('challenges').select('id,end_date').in('id', acceptedIds);
+      const today = new Date().toISOString().slice(0,10), seen = seenResults();
+      unseen = (chs||[]).filter(c => c.end_date < today && !seen.includes(c.id)).length;
+    }
+    const tot = invited + unseen;
+    setAmiciDot(tot);
+    const sd = $('amChDot'); if (sd) sd.classList.toggle('hidden', tot <= 0);
+  } catch(e){}
 }
 function chMetricLabel(m){ return m==='drop' ? 'Chi scende di più' : 'Miglior gara'; }
 function chFmtVal(m,v){ if (v==null) return '—'; return m==='drop' ? ((v>0?'-':(v<0?'+':''))+Math.abs(v).toFixed(1)+' hcp') : ('SD '+(+v).toFixed(1)); }
@@ -1563,49 +1602,91 @@ async function loadChallenges(){
   if (ids.size) { const { data: profs } = await cloud.from('profiles').select('user_id,name,club,code').in('user_id', [...ids]); (profs||[]).forEach(p => names[p.user_id] = nameOf(p)); }
   CH = { list: chs||[], parts, names };
   renderChallenges();
-  const invited = Object.values(parts).reduce((n,arr) => n + arr.filter(p => p.user_id===USER.id && p.status==='invited').length, 0);
-  setAmiciDot(invited);
-  const sd = $('amChDot'); if (sd) sd.classList.toggle('hidden', invited <= 0);
+  const today = new Date().toISOString().slice(0,10);
+  // conteggio vittorie personali (sfide concluse dove sono l'unico vincitore)
+  const myWins = (CH.list||[]).filter(c => c.end_date < today).reduce((n,c) => {
+    const { winners } = challengeWinners(c, CH.parts[c.id]||[]);
+    return n + (winners.length===1 && winners[0]===USER.id ? 1 : 0);
+  }, 0);
+  if (S.wins !== myWins) { S.wins = myWins; save(); }
+  try { await cloud.from('profiles').update({ wins: myWins }).eq('user_id', USER.id); } catch(e){}
+  // notifiche: inviti + risultati non ancora visti
+  const invited = invitesCount();
+  const unseen = myConcludedIds().filter(id => !seenResults().includes(id)).length;
+  const tot = invited + unseen;
+  setAmiciDot(tot);
+  const sd = $('amChDot'); if (sd) sd.classList.toggle('hidden', tot <= 0);
   if (invited > 0 && amiciView === 'lb') switchAmiciView('ch');
+}
+function challengeWinners(c, parts){
+  const accepted = (parts||[]).filter(p => p.status === 'accepted');
+  const withVal = accepted.filter(p => p.value != null);
+  if (!withVal.length) return { winners: [], accepted };
+  const best = c.metric==='drop' ? Math.max(...withVal.map(p=>+p.value)) : Math.min(...withVal.map(p=>+p.value));
+  const winners = withVal.filter(p => +p.value === best).map(p => p.user_id);
+  return { winners, accepted, best };
+}
+function challengeStandings(c){
+  const me = USER.id, parts = CH.parts[c.id] || [];
+  const nm = uid => CH.names[uid] || (uid===me ? 'Tu' : 'Amico');
+  const { winners } = challengeWinners(c, parts);
+  const soleWinner = winners.length === 1 ? winners[0] : null;
+  const accepted = parts.filter(p => p.status === 'accepted');
+  const better = (a,b) => c.metric==='drop'
+    ? ((b.value==null?-1e9:+b.value) - (a.value==null?-1e9:+a.value))
+    : ((a.value==null?1e9:+a.value) - (b.value==null?1e9:+b.value));
+  accepted.sort(better);
+  const medals = ['🥇','🥈','🥉'];
+  const rows = accepted.length ? accepted.map((p,i) => {
+    const isMe = p.user_id===me, isWin = p.user_id===soleWinner;
+    const rank = i<3 ? medals[i] : `<b>${i+1}</b>`;
+    return `<div class="chl-row${isMe?' me':''}"><span class="chl-rank">${rank}</span><span class="chl-name">${nm(p.user_id)}${isWin?' 👑':''}</span><span class="chl-val">${chFmtVal(c.metric,p.value)}</span></div>`;
+  }).join('') : '<div class="ch-meta">Ancora nessun partecipante.</div>';
+  return { rows, winners, pending: parts.filter(p => p.status==='invited').length };
 }
 function renderChallenges(){
   const el = $('challenges'); if (!el) return;
   const me = USER.id, today = new Date().toISOString().slice(0,10);
-  const items = CH.list;
-  if (!items.length) { el.innerHTML = '<p class="note" style="margin:0">Nessuna sfida ancora. Sfida i tuoi amici col tasto qui sopra!</p>'; return; }
   const nm = uid => CH.names[uid] || (uid===me ? 'Tu' : 'Amico');
-  el.innerHTML = items.map(c => {
-    const parts = CH.parts[c.id] || [];
-    const mine = parts.find(p => p.user_id === me);
-    if (mine && mine.status === 'invited') {
-      const nAcc = parts.filter(p => p.status==='accepted').length;
-      return `<div class="ch-item"><div class="ch-title">${nm(c.challenger)} ti sfida</div>
-        <div class="ch-meta">${chMetricLabel(c.metric)} · fino al ${chFmtDate(c.end_date)} · ${nAcc} già dentro</div>
-        <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" style="flex:1;margin:0" onclick="respondChallenge('${c.id}',true)">Accetta</button><button class="btn secondary" style="flex:1;margin:0" onclick="respondChallenge('${c.id}',false)">Rifiuta</button></div></div>`;
-    }
-    const ended = c.end_date < today;
+  const invites = [], active = [], concluded = [];
+  (CH.list||[]).forEach(c => {
+    const mine = (CH.parts[c.id]||[]).find(p => p.user_id === me);
+    if (mine && mine.status === 'invited') invites.push(c);
+    else if (c.end_date < today) concluded.push(c);
+    else active.push(c);
+  });
+  const seen = new Set(seenResults());
+  let html = '';
+  invites.forEach(c => {
+    const nAcc = (CH.parts[c.id]||[]).filter(p => p.status==='accepted').length;
+    html += `<div class="ch-item"><div class="ch-title">${nm(c.challenger)} ti sfida</div>
+      <div class="ch-meta">${chMetricLabel(c.metric)} · fino al ${chFmtDate(c.end_date)} · ${nAcc} già dentro</div>
+      <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" style="flex:1;margin:0" onclick="respondChallenge('${c.id}',true)">Accetta</button><button class="btn secondary" style="flex:1;margin:0" onclick="respondChallenge('${c.id}',false)">Rifiuta</button></div></div>`;
+  });
+  active.forEach(c => {
+    const s = challengeStandings(c);
     const daysLeft = Math.ceil((new Date(c.end_date) - new Date(today)) / 86400000);
-    const accepted = parts.filter(p => p.status === 'accepted');
-    const better = (a,b) => c.metric==='drop'
-      ? ((b.value==null?-1e9:+b.value) - (a.value==null?-1e9:+a.value))
-      : ((a.value==null?1e9:+a.value) - (b.value==null?1e9:+b.value));
-    accepted.sort(better);
-    const leaderId = accepted.length && accepted[0].value!=null ? accepted[0].user_id : null;
-    const pending = parts.filter(p => p.status === 'invited').length;
-    const medals = ['🥇','🥈','🥉'];
-    const rows = accepted.length ? accepted.map((p,i) => {
-      const isMe = p.user_id===me, isLead = p.user_id===leaderId;
-      const rank = i<3 ? medals[i] : `<b>${i+1}</b>`;
-      return `<div class="chl-row${isMe?' me':''}"><span class="chl-rank">${rank}</span><span class="chl-name">${nm(p.user_id)}${isLead?' 👑':''}</span><span class="chl-val">${chFmtVal(c.metric,p.value)}</span></div>`;
-    }).join('') : '<div class="ch-meta">Ancora nessun partecipante.</div>';
-    const winner = ended ? (leaderId ? 'Sfida conclusa · vince ' + nm(leaderId) : 'Sfida conclusa')
-      : (daysLeft<=0 ? 'Ultimo giorno!' : (daysLeft + ' giorni alla fine'));
-    const sub = (pending>0 && !ended) ? ` · ${pending} in attesa` : '';
-    return `<div class="ch-item"><div class="ch-title">${chMetricLabel(c.metric)}</div>
+    const foot = daysLeft<=0 ? 'Ultimo giorno!' : (daysLeft + ' giorni alla fine');
+    const sub = s.pending>0 ? ` · ${s.pending} in attesa` : '';
+    html += `<div class="ch-item"><div class="ch-title">${chMetricLabel(c.metric)}</div>
       <div class="ch-meta">fino al ${chFmtDate(c.end_date)}${sub}</div>
-      <div class="chl-list">${rows}</div>
-      <div class="ch-meta" style="text-align:center;margin-top:8px">${winner}</div></div>`;
-  }).join('');
+      <div class="chl-list">${s.rows}</div>
+      <div class="ch-meta" style="text-align:center;margin-top:8px">${foot}</div></div>`;
+  });
+  if (concluded.length) {
+    html += '<div class="ch-sec">Concluse</div>';
+    concluded.forEach(c => {
+      const s = challengeStandings(c);
+      const isNew = !seen.has(c.id);
+      const foot = s.winners.length===1 ? ('🏆 Vince ' + nm(s.winners[0]))
+        : (s.winners.length>1 ? '🤝 Pareggio' : 'Nessun partecipante');
+      html += `<div class="ch-item concluded"><div class="ch-title">${chMetricLabel(c.metric)}${isNew?' <span class="ch-new">Nuovo</span>':''}</div>
+        <div class="ch-meta">conclusa il ${chFmtDate(c.end_date)}</div>
+        <div class="chl-list">${s.rows}</div>
+        <div class="ch-foot-win">${foot}</div></div>`;
+    });
+  }
+  el.innerHTML = html || '<p class="note" style="margin:0">Nessuna sfida ancora. Sfida i tuoi amici col tasto qui sopra!</p>';
 }
 async function openChForm(){
   if (!cloud || !USER) { alert('Le sfide sono disponibili con l\'account online.'); return; }
