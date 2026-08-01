@@ -23,7 +23,9 @@
   .brand .tric { margin-top: 4px; height: 3px; width: 100%; background: linear-gradient(90deg, #1b7a3d 0 33%, #fff 33% 66%, #ce2b37 66% 100%); border-radius: 2px; }
   header .who { font-size: .78rem; opacity: .9; }
   nav { display: flex; background: #fff; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
-  nav button { flex: 1; min-width: 64px; background: none; border: none; color: var(--muted); padding: 10px 4px; font-size: .72rem; cursor: pointer; border-bottom: 2px solid transparent; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  nav button { position: relative; flex: 1; min-width: 64px; background: none; border: none; color: var(--muted); padding: 10px 4px; font-size: .72rem; cursor: pointer; border-bottom: 2px solid transparent; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .nav-dot { position: absolute; top: 6px; right: 50%; transform: translateX(16px); width: 9px; height: 9px; border-radius: 50%; background: #ce2b37; border: 2px solid #fff; }
+  .nav-dot.hidden { display: none; }
   nav button svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
   nav button.active { color: var(--blue); font-weight: 600; border-bottom-color: var(--blue); }
   main { max-width: 780px; margin: 0 auto; padding: 16px 14px; }
@@ -221,7 +223,7 @@
   <button data-tab="sim"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>Simula</button>
   <button data-tab="rounds"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>Gare</button>
   <button data-tab="stats"><svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V5M19 20v-6"/></svg>Stats</button>
-  <button data-tab="amici"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c0-3.3 2.5-5 5.5-5s5.5 1.7 5.5 5"/><circle cx="17.5" cy="9" r="2.2"/><path d="M17.5 13c2.4 0 3.9 1.4 3.9 4"/></svg>Amici</button>
+  <button data-tab="amici"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c0-3.3 2.5-5 5.5-5s5.5 1.7 5.5 5"/><circle cx="17.5" cy="9" r="2.2"/><path d="M17.5 13c2.4 0 3.9 1.4 3.9 4"/></svg>Amici<span class="nav-dot hidden" id="amiciDot"></span></button>
 </nav>
 <main>
 
@@ -1452,6 +1454,11 @@ async function shareCard(){
 }
 // ============ SFIDE TRA AMICI ============
 let CH = { list: [], names: {}, vals: {} };
+function setAmiciDot(n){ const d = $('amiciDot'); if (!d) return; if (n > 0) d.classList.remove('hidden'); else d.classList.add('hidden'); }
+async function checkChallengeNotifs(){
+  if (!cloud || !USER) { setAmiciDot(0); return; }
+  try { const { data } = await cloud.from('challenges').select('id').eq('opponent', USER.id).eq('status', 'pending'); setAmiciDot((data||[]).length); } catch(e){}
+}
 function chMetricLabel(m){ return m==='drop' ? 'Chi scende di più' : 'Miglior gara'; }
 function chFmtVal(m,v){ if (v==null) return '—'; return m==='drop' ? ((v>0?'-':(v<0?'+':''))+Math.abs(v).toFixed(1)+' hcp') : ('SD '+(+v).toFixed(1)); }
 function chFmtDate(ds){ if(!ds) return ''; const p=ds.split('-'); return p[2]+'/'+p[1]; }
@@ -1496,6 +1503,7 @@ async function loadChallenges(){
   if (cids.length) { const { data: cv } = await cloud.from('challenge_values').select('challenge_id,user_id,value').in('challenge_id', cids); (cv||[]).forEach(v => { (vals[v.challenge_id] = vals[v.challenge_id]||{})[v.user_id] = v.value; }); }
   CH = { list: chs||[], names, vals };
   renderChallenges();
+  setAmiciDot(CH.list.filter(c => c.status==='pending' && c.opponent===USER.id).length);
 }
 function renderChallenges(){
   const el = $('challenges'); if (!el) return;
@@ -1897,6 +1905,9 @@ function afterAuth() {
   document.body.classList.remove('preauth');   // ora sei dentro: mostra header + menù
   if (S.currentHI == null && (!S.rounds || S.rounds.length === 0)) openProfile(true); else renderAll();
   syncProfile();
+  checkChallengeNotifs();
+  if (!window._chNotifTimer) window._chNotifTimer = setInterval(checkChallengeNotifs, 90000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkChallengeNotifs(); });
   // Se arrivi da un link amico (?amico=CODICE), collega in automatico
   try {
     const inv = new URLSearchParams(location.search).get('amico');
