@@ -110,6 +110,36 @@
   .feed-item:last-child { border-bottom: 0; }
   .feed-item .ft { flex: 1; min-width: 0; }
   .feed-when { font-size: .68rem; color: var(--muted); white-space: nowrap; flex: 0 0 auto; }
+  /* ---- Scheda profilo a schermo pieno ---- */
+  .pf-screen { position: fixed; inset: 0; background: var(--bg); z-index: 100; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .pf-screen.hidden { display: none; }
+  .pf-hero { background: var(--blue); color: #f9f4ee; text-align: center; padding: calc(env(safe-area-inset-top) + 24px) 18px 24px; position: relative; }
+  .pf-close { position: absolute; top: calc(env(safe-area-inset-top) + 12px); left: 10px; background: none; border: none; color: #f9f4ee; font-size: 1.7rem; line-height: .7; cursor: pointer; padding: 6px 12px; }
+  .pf-avatar { width: 76px; height: 76px; border-radius: 50%; background: var(--bg); color: var(--blue); display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; font-family: var(--serif); font-size: 1.7rem; border: 2px solid var(--gold, #b08d3f); }
+  .pf-hname { font-family: var(--serif); font-size: 1.35rem; letter-spacing: .5px; }
+  .pf-hsub { font-size: .8rem; color: #c3d2c5; margin-top: 3px; }
+  .pf-hbadge { display: inline-flex; align-items: center; gap: 7px; margin-top: 13px; background: rgba(249,244,238,.12); border: 1px solid var(--gold, #b08d3f); border-radius: 22px; padding: 5px 15px; }
+  .pf-hbadge span { font-size: .68rem; text-transform: uppercase; letter-spacing: .5px; color: #c3d2c5; }
+  .pf-hbadge b { font-family: var(--serif); font-size: 1.15rem; font-weight: 500; color: #f9f4ee; }
+  .pf-body { max-width: 560px; margin: 0 auto; padding: 16px 14px calc(30px + env(safe-area-inset-bottom)); }
+  .pf-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .pf-stat { background: var(--green-light); border-radius: 12px; padding: 11px 6px; text-align: center; }
+  .pf-stat .v { font-family: var(--serif); font-size: 1.2rem; color: var(--blue); }
+  .pf-stat .l { font-size: .6rem; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin-top: 2px; }
+  .pf-sectlabel { font-size: .68rem; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin: 18px 4px 7px; }
+  .pf-list { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .pf-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--green-light); }
+  .pf-row:last-child { border-bottom: 0; }
+  .pf-row .k { font-size: .82rem; color: var(--muted); }
+  .pf-row .pv { font-size: .9rem; color: var(--ink, #1a1a1a); text-align: right; }
+  .pf-arow { display: flex; justify-content: space-between; align-items: center; padding: 14px; border-bottom: 1px solid var(--green-light); cursor: pointer; font-size: .92rem; color: var(--ink, #1a1a1a); }
+  .pf-arow:last-child { border-bottom: 0; }
+  .pf-arow .chev { color: #b9c2ba; font-size: 1.2rem; }
+  .pf-arow.danger { color: #ce2b37; }
+  .pf-editcard { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .pf-foot { text-align: center; margin-top: 22px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .pf-ver { font-family: var(--serif); font-size: .78rem; color: #a08b6a; }
+  .pf-logout { background: none; border: 1px solid var(--border); border-radius: 10px; color: #ce2b37; padding: 10px 22px; font-size: .88rem; cursor: pointer; }
   .hidden { display: none; }
   .overlay { position: fixed; inset: 0; background: rgba(20,45,31,.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
   .overlay.hidden { display: none; }
@@ -449,39 +479,74 @@
 </div>
 
 <!-- ===== PROFILO ===== -->
-<div id="profileOverlay" class="overlay hidden" onclick="if(event.target===this)closeProfileFull()">
-  <div class="card ov-card">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
-      <h2 style="margin:0;border:0">Il tuo profilo</h2>
-      <button onclick="closeProfileFull()" aria-label="Chiudi" style="background:none;border:none;font-size:1.6rem;line-height:.8;color:var(--muted);cursor:pointer;padding:0">×</button>
+<div id="profileOverlay" class="pf-screen hidden">
+  <div class="pf-hero">
+    <button onclick="closeProfileFull()" aria-label="Chiudi" class="pf-close">×</button>
+    <div class="pf-avatar" id="pfAvatar">—</div>
+    <div class="pf-hname" id="pfHeroName">—</div>
+    <div class="pf-hsub" id="pfHeroSub"></div>
+    <div class="pf-hbadge"><span>Handicap</span><b id="pfHeroHcp">–</b></div>
+  </div>
+  <div class="pf-body">
+    <div class="pf-stats">
+      <div class="pf-stat"><div class="v" id="pfStGare">–</div><div class="l">Gare</div></div>
+      <div class="pf-stat"><div class="v" id="pfStBest">–</div><div class="l">Miglior SD</div></div>
+      <div class="pf-stat"><div class="v" id="pfStYear">–</div><div class="l">Membro dal</div></div>
     </div>
 
-    <label>Nome e cognome</label>
-    <input id="pfName" type="text" placeholder="es. Mario Rossi">
-    <label>Email</label>
-    <input id="pfEmail" type="email" disabled style="background:#f4f6fb;color:var(--muted)">
-    <label>Numero tessera federale</label>
-    <input id="pfTessera" type="text" inputmode="numeric" placeholder="es. 123456">
-    <label>Golf club di appartenenza</label>
-    <div class="search-wrap">
-      <input id="pfClub" type="text" autocomplete="off" placeholder="Scrivi le prime lettere, es. Carimate">
-      <div class="suggestions hidden" id="pfClubSugg"></div>
+    <div id="pfView">
+      <div class="pf-sectlabel">Dati personali</div>
+      <div class="pf-list">
+        <div class="pf-row"><span class="k">Nome</span><span class="pv" id="pvName">—</span></div>
+        <div class="pf-row"><span class="k">Email</span><span class="pv" id="pvEmail">—</span></div>
+        <div class="pf-row"><span class="k">Golf club</span><span class="pv" id="pvClub">—</span></div>
+        <div class="pf-row"><span class="k">Tessera</span><span class="pv" id="pvTessera">—</span></div>
+        <div class="pf-row"><span class="k">Handicap Index</span><span class="pv" id="pvHI">—</span></div>
+      </div>
+      <button class="btn" style="width:100%" onclick="editProfile()">Modifica dati</button>
     </div>
-    <label>Handicap Index</label>
-    <input id="pfHI" type="number" step="0.1" inputmode="decimal" placeholder="es. 23.2">
-    <button class="btn" style="width:100%" onclick="saveProfileFull()">Salva</button>
-    <span class="note" id="pfMsg" style="display:block;text-align:center;margin-top:6px"></span>
 
-    <h2 style="border:0;margin-top:18px">Sicurezza</h2>
-    <label>Nuova password</label>
-    <input id="pfPass" type="password" autocomplete="new-password" placeholder="almeno 6 caratteri">
-    <button class="btn secondary" style="width:100%" onclick="changePassword()">Cambia password</button>
-    <span class="note" id="pfPassMsg" style="display:block;text-align:center;margin-top:6px"></span>
+    <div id="pfEdit" class="hidden">
+      <div class="pf-sectlabel">Modifica dati</div>
+      <div class="pf-editcard">
+        <label>Nome e cognome</label>
+        <input id="pfName" type="text" placeholder="Mario Rossi">
+        <label>Email</label>
+        <input id="pfEmail" type="email" disabled style="background:var(--green-light);color:var(--muted)">
+        <label>Numero tessera federale</label>
+        <input id="pfTessera" type="text" inputmode="numeric" placeholder="123456">
+        <label>Golf club di appartenenza</label>
+        <div class="search-wrap">
+          <input id="pfClub" type="text" autocomplete="off" placeholder="Scrivi le prime lettere, es. Carimate">
+          <div class="suggestions hidden" id="pfClubSugg"></div>
+        </div>
+        <label>Handicap Index</label>
+        <input id="pfHI" type="number" step="0.1" inputmode="decimal" placeholder="23.2">
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button class="btn secondary" style="flex:1;margin:0" onclick="cancelEditProfile()">Annulla</button>
+          <button class="btn" style="flex:1;margin:0" onclick="saveProfileFull()">Salva</button>
+        </div>
+        <span class="note" id="pfMsg" style="display:block;text-align:center;margin-top:6px"></span>
+      </div>
+    </div>
 
-    <h2 style="border:0;margin-top:18px">I tuoi dati</h2>
-    <button class="btn secondary" style="width:100%" onclick="exportData()">Esporta i miei dati</button>
-    <button class="btn" style="width:100%;background:#ce2b37" onclick="deleteMyData()">Elimina i miei dati</button>
-    <p class="note">L'esportazione scarica un file con handicap, gare e profilo. L'eliminazione rimuove i tuoi dati da questo dispositivo e dal cloud: non si può annullare.</p>
+    <div class="pf-sectlabel">Account</div>
+    <div class="pf-list">
+      <div class="pf-arow" onclick="togglePwd()"><span>Cambia password</span><span class="chev">›</span></div>
+      <div id="pfPwdBox" class="hidden" style="padding:2px 14px 14px">
+        <input id="pfPass" type="password" autocomplete="new-password" placeholder="Nuova password (min 6 caratteri)">
+        <button class="btn secondary" style="width:100%" onclick="changePassword()">Aggiorna password</button>
+        <span class="note" id="pfPassMsg" style="display:block;text-align:center;margin-top:6px"></span>
+      </div>
+      <div class="pf-arow" onclick="exportData()"><span>Esporta i miei dati</span><span class="chev">›</span></div>
+      <div class="pf-arow danger" onclick="deleteMyData()"><span>Elimina i miei dati</span><span class="chev">›</span></div>
+    </div>
+    <p class="note" style="padding:0 4px">L'esportazione scarica un file con handicap, gare e profilo. L'eliminazione rimuove i tuoi dati da questo dispositivo e dal cloud: non si può annullare.</p>
+
+    <div class="pf-foot">
+      <span class="pf-ver">Claret · v1.0</span>
+      <button class="pf-logout" onclick="logout()">Esci dall'account</button>
+    </div>
   </div>
 </div>
 </main>
@@ -1015,6 +1080,33 @@ function setupClubSearch(inputId, suggId) {
   });
   document.addEventListener('click', e => { if (!inp.contains(e.target) && !sugg.contains(e.target)) sugg.classList.add('hidden'); });
 }
+function pfInitials(name){
+  const p = (name||'').trim().split(/\s+/).filter(Boolean);
+  if (!p.length) return '★';
+  return (p[0][0] + (p[1] ? p[1][0] : '')).toUpperCase();
+}
+function renderProfileView(){
+  const hi = officialHI();
+  const hiTxt = hi!=null ? hi.toFixed(1) : (S.currentHI!=null ? (+S.currentHI).toFixed(1) : '—');
+  $('pvName').textContent = S.name || '—';
+  $('pvEmail').textContent = USER ? USER.email : '—';
+  $('pvClub').textContent = S.club || '—';
+  $('pvTessera').textContent = S.tessera || '—';
+  $('pvHI').textContent = hiTxt;
+  $('pfAvatar').textContent = pfInitials(S.name);
+  $('pfHeroName').textContent = S.name || 'Il tuo profilo';
+  $('pfHeroSub').textContent = [S.club, S.tessera ? ('Tessera ' + S.tessera) : ''].filter(Boolean).join(' · ');
+  $('pfHeroHcp').textContent = hi!=null ? hi.toFixed(1) : (S.currentHI!=null ? (+S.currentHI).toFixed(1) : '–');
+  const rows = sortedResults();
+  const cnt = rows.filter(r => r.sd !== '' && !isNaN(+r.sd) && !r.noHcp);
+  $('pfStGare').textContent = cnt.length || '–';
+  const sds = cnt.map(r=>+r.sd);
+  $('pfStBest').textContent = sds.length ? Math.min(...sds).toFixed(1) : '–';
+  let year = '–';
+  if (USER && USER.created_at) year = new Date(USER.created_at).getFullYear();
+  else if (cnt.length) { const ys = cnt.map(r=>+yearOf(r)).filter(Boolean); if (ys.length) year = Math.min(...ys); }
+  $('pfStYear').textContent = year;
+}
 function openProfileFull() {
   $('pfName').value = S.name || '';
   $('pfEmail').value = USER ? USER.email : '';
@@ -1022,8 +1114,15 @@ function openProfileFull() {
   $('pfClub').value = S.club || '';
   $('pfHI').value = S.currentHI != null ? S.currentHI : '';
   $('pfMsg').textContent = ''; $('pfPassMsg').textContent = ''; $('pfPass').value = '';
+  $('pfPwdBox').classList.add('hidden');
+  renderProfileView();
+  $('pfEdit').classList.add('hidden'); $('pfView').classList.remove('hidden');
   $('profileOverlay').classList.remove('hidden');
+  window.scrollTo(0, 0);
 }
+function editProfile(){ $('pfView').classList.add('hidden'); $('pfEdit').classList.remove('hidden'); }
+function cancelEditProfile(){ $('pfMsg').textContent=''; $('pfEdit').classList.add('hidden'); $('pfView').classList.remove('hidden'); }
+function togglePwd(){ $('pfPwdBox').classList.toggle('hidden'); }
 function closeProfileFull() { $('profileOverlay').classList.add('hidden'); }
 async function saveProfileFull() {
   S.name = ($('pfName').value || '').trim();
@@ -1036,7 +1135,8 @@ async function saveProfileFull() {
   $('pfMsg').textContent = 'Salvato ✓';
   renderAll();
   syncProfile();
-  setTimeout(() => { $('pfMsg').textContent = ''; }, 2000);
+  renderProfileView();
+  setTimeout(() => { $('pfMsg').textContent = ''; $('pfEdit').classList.add('hidden'); $('pfView').classList.remove('hidden'); window.scrollTo(0,0); }, 700);
 }
 async function changePassword() {
   const p = $('pfPass').value || '';
