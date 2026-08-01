@@ -34,9 +34,9 @@
     header { position: fixed; top: 0; left: 0; right: 0; z-index: 50; }
     main { padding: 96px 14px calc(100px + env(safe-area-inset-bottom)); }
     /* Barra flottante stile WHOOP: staccata dal fondo, arrotondata, sollevata */
-    nav { position: fixed; top: auto; left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 50; border: 1px solid var(--border); border-radius: 24px; background: #fff; box-shadow: 0 4px 18px rgba(20,45,31,.14); padding: 6px 5px; }
-    nav button { border-bottom: none; border-radius: 16px; font-size: .66rem; gap: 4px; padding: 8px 3px; }
-    nav button svg { width: 25px; height: 25px; }
+    nav { position: fixed; top: auto; left: 8px; right: 8px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 50; border: 1px solid var(--border); border-radius: 24px; background: #fff; box-shadow: 0 4px 18px rgba(20,45,31,.14); padding: 6px 4px; box-sizing: border-box; overflow: hidden; }
+    nav button { border-bottom: none; border-radius: 14px; font-size: .6rem; gap: 3px; padding: 8px 1px; min-width: 0; }
+    nav button svg { width: 22px; height: 22px; }
     nav button.active { border-bottom: none; background: var(--green-light); color: var(--blue); font-weight: 600; }
     /* Tabella gare: su telefono niente scroll orizzontale, solo colonne essenziali */
     #roundsTable th:nth-child(4), #roundsTable td:nth-child(4),
@@ -145,6 +145,7 @@
   .ch-item.concluded { background: #faf7f0; }
   .ch-new { background: #ce2b37; color: #fff; font-size: .58rem; padding: 2px 7px; border-radius: 10px; vertical-align: middle; margin-left: 7px; text-transform: uppercase; letter-spacing: .4px; }
   .ch-foot-win { text-align: center; margin-top: 8px; font-weight: 700; color: var(--green); font-size: .92rem; }
+  .ch-invite-btn { display: block; width: 100%; margin-top: 10px; background: var(--green-light); color: var(--blue); border: none; border-radius: 10px; padding: 9px; font-size: .82rem; font-weight: 600; cursor: pointer; }
   .lb-tro { font-size: .78rem; color: #a07c1f; white-space: nowrap; }
   .pf-hwins { margin-top: 8px; font-size: .85rem; color: #e8d29a; }
   /* ---- Scheda profilo a schermo pieno ---- */
@@ -487,6 +488,22 @@
     </div>
   </div>
 </section>
+
+<div id="chInviteOverlay" class="overlay hidden" onclick="if(event.target===this)closeInviteToCh()">
+  <div class="card ov-card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <h2 style="margin:0;border:0">Invita alla sfida</h2>
+      <button onclick="closeInviteToCh()" aria-label="Chiudi" style="background:none;border:none;font-size:1.6rem;line-height:.8;color:var(--muted);cursor:pointer;padding:0">×</button>
+    </div>
+    <p class="note" style="margin-top:4px">Puoi invitare i tuoi amici non ancora nella sfida.</p>
+    <div id="chInviteList" class="ch-friendlist"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn secondary" style="flex:1;margin:0" onclick="closeInviteToCh()">Annulla</button>
+      <button class="btn" style="flex:1;margin:0" onclick="confirmInviteToCh()">Invita</button>
+    </div>
+    <span class="note" id="chInviteMsg" style="display:block;text-align:center;margin-top:6px"></span>
+  </div>
+</div>
 
 <div id="authOverlay" class="landing hidden">
   <div class="landing-inner">
@@ -1665,13 +1682,16 @@ function renderChallenges(){
   });
   active.forEach(c => {
     const s = challengeStandings(c);
+    const mine = (CH.parts[c.id]||[]).find(p => p.user_id === me);
+    const canInvite = mine && mine.status === 'accepted';
     const daysLeft = Math.ceil((new Date(c.end_date) - new Date(today)) / 86400000);
     const foot = daysLeft<=0 ? 'Ultimo giorno!' : (daysLeft + ' giorni alla fine');
     const sub = s.pending>0 ? ` · ${s.pending} in attesa` : '';
     html += `<div class="ch-item"><div class="ch-title">${chMetricLabel(c.metric)}</div>
       <div class="ch-meta">fino al ${chFmtDate(c.end_date)}${sub}</div>
       <div class="chl-list">${s.rows}</div>
-      <div class="ch-meta" style="text-align:center;margin-top:8px">${foot}</div></div>`;
+      <div class="ch-meta" style="text-align:center;margin-top:8px">${foot}</div>
+      ${canInvite ? `<button class="ch-invite-btn" onclick="openInviteToCh('${c.id}')">+ Invita amici</button>` : ''}</div>`;
   });
   if (concluded.length) {
     html += '<div class="ch-sec">Concluse</div>';
@@ -1715,6 +1735,28 @@ async function createChallenge(){
 async function respondChallenge(id, accept){
   const { error } = await cloud.from('challenge_participants').update({ status: accept ? 'accepted' : 'declined', updated_at: new Date().toISOString() }).eq('challenge_id', id).eq('user_id', USER.id);
   if (!error) loadChallenges();
+}
+let chInviteCid = null;
+async function openInviteToCh(cid){
+  if (!cloud || !USER) return;
+  chInviteCid = cid; $('chInviteMsg').textContent = '';
+  const box = $('chInviteList');
+  const existing = new Set((CH.parts[cid]||[]).map(p => p.user_id));
+  const { data } = await cloud.from('profiles').select('user_id,name,club,code');
+  const friends = (data||[]).filter(p => p.user_id !== USER.id && !existing.has(p.user_id));
+  box.innerHTML = friends.length
+    ? friends.map(f => `<label class="ch-fr"><input type="checkbox" value="${f.user_id}"><span>${nameOf(f)}</span></label>`).join('')
+    : '<p class="note" style="margin:0">Tutti i tuoi amici sono già nella sfida.</p>';
+  $('chInviteOverlay').classList.remove('hidden');
+}
+function closeInviteToCh(){ $('chInviteOverlay').classList.add('hidden'); }
+async function confirmInviteToCh(){
+  const friends = [...document.querySelectorAll('#chInviteList input:checked')].map(i => i.value);
+  if (!friends.length) { $('chInviteMsg').textContent = 'Scegli almeno un amico.'; return; }
+  $('chInviteMsg').textContent = 'Invio…';
+  const { error } = await cloud.rpc('invite_to_challenge', { p_cid: chInviteCid, p_friends: friends });
+  if (error) { $('chInviteMsg').textContent = 'Errore, riprova.'; return; }
+  closeInviteToCh(); loadChallenges();
 }
 // Campo di riferimento per tradurre l'obiettivo in colpi/punti (il tuo club dal profilo, o un campo tipo)
 function refCourse() {
