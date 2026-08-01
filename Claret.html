@@ -123,6 +123,15 @@
   .ch-side .chs-name { font-size: .8rem; color: var(--ink, #1a1a1a); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ch-side .chs-val { font-family: var(--serif); font-size: 1.15rem; color: var(--blue); margin-top: 2px; }
   .ch-mid { font-size: .72rem; color: var(--muted); flex: 0 0 auto; }
+  .ch-friendlist { display: flex; flex-direction: column; gap: 6px; max-height: 190px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; padding: 8px; margin-bottom: 6px; }
+  .ch-fr { display: flex; align-items: center; gap: 10px; padding: 6px 4px; font-size: .92rem; color: var(--ink, #1a1a1a); cursor: pointer; }
+  .ch-fr input { width: 18px; height: 18px; flex: 0 0 auto; }
+  .chl-list { margin-top: 10px; }
+  .chl-row { display: flex; align-items: center; gap: 10px; padding: 8px 8px; border-radius: 8px; }
+  .chl-row.me { background: var(--green-light); }
+  .chl-rank { width: 26px; text-align: center; flex: 0 0 26px; font-size: 1.05rem; }
+  .chl-name { flex: 1; min-width: 0; font-size: .92rem; color: var(--ink, #1a1a1a); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chl-val { font-family: var(--serif); font-size: 1.05rem; color: var(--blue); flex: 0 0 auto; }
   /* ---- Scheda profilo a schermo pieno ---- */
   .pf-screen { position: fixed; inset: 0; background: var(--bg); z-index: 100; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .pf-screen.hidden { display: none; }
@@ -402,8 +411,8 @@
       <button class="btn secondary" style="margin:0;width:auto;padding:8px 14px" onclick="openChForm()">Nuova sfida</button>
     </div>
     <div id="chForm" class="hidden" style="margin-top:12px">
-      <label>Sfida l'amico</label>
-      <select id="chFriend"></select>
+      <label>Scegli gli amici</label>
+      <div id="chFriends" class="ch-friendlist"></div>
       <label>Tipo di sfida</label>
       <select id="chMetric">
         <option value="drop">Chi scende di più (handicap)</option>
@@ -1453,11 +1462,11 @@ async function shareCard(){
   }, 'image/png');
 }
 // ============ SFIDE TRA AMICI ============
-let CH = { list: [], names: {}, vals: {} };
+let CH = { list: [], parts: {}, names: {} };
 function setAmiciDot(n){ const d = $('amiciDot'); if (!d) return; if (n > 0) d.classList.remove('hidden'); else d.classList.add('hidden'); }
 async function checkChallengeNotifs(){
   if (!cloud || !USER) { setAmiciDot(0); return; }
-  try { const { data } = await cloud.from('challenges').select('id').eq('opponent', USER.id).eq('status', 'pending'); setAmiciDot((data||[]).length); } catch(e){}
+  try { const { data } = await cloud.from('challenge_participants').select('challenge_id').eq('user_id', USER.id).eq('status', 'invited'); setAmiciDot((data||[]).length); } catch(e){}
 }
 function chMetricLabel(m){ return m==='drop' ? 'Chi scende di più' : 'Miglior gara'; }
 function chFmtVal(m,v){ if (v==null) return '—'; return m==='drop' ? ((v>0?'-':(v<0?'+':''))+Math.abs(v).toFixed(1)+' hcp') : ('SD '+(+v).toFixed(1)); }
@@ -1482,81 +1491,106 @@ function computeChallengeValue(ch){
   if (!win.length) return null;
   return Math.round(Math.min(...win.map(r=>+r.sd))*10)/10;
 }
-async function syncChallengeValues(list){
+async function syncChallengeValues(list, parts){
   if (!cloud || !USER) return;
   for (const ch of (list||[])) {
-    if (ch.status !== 'active') continue;
+    const mine = (parts[ch.id]||[]).find(p => p.user_id === USER.id);
+    if (!mine || mine.status !== 'accepted') continue;
     const v = computeChallengeValue(ch);
-    try { await cloud.from('challenge_values').upsert({ challenge_id: ch.id, user_id: USER.id, value: v, updated_at: new Date().toISOString() }); } catch(e){}
+    try { await cloud.from('challenge_participants').update({ value: v, updated_at: new Date().toISOString() }).eq('challenge_id', ch.id).eq('user_id', USER.id); } catch(e){}
   }
+}
+async function fetchParts(cids){
+  const parts = {};
+  if (cids.length) {
+    const { data: pp } = await cloud.from('challenge_participants').select('challenge_id,user_id,status,value').in('challenge_id', cids);
+    (pp||[]).forEach(p => { (parts[p.challenge_id] = parts[p.challenge_id]||[]).push(p); });
+  }
+  return parts;
 }
 async function loadChallenges(){
   const el = $('challenges'); if (!el) return;
   if (!cloud || !USER) { el.innerHTML = '<p class="note" style="margin:0">Le sfide sono disponibili con l\'account online.</p>'; return; }
   const { data: chs, error } = await cloud.from('challenges').select('*').order('created_at', { ascending:false });
   if (error) { el.innerHTML = '<p class="note" style="margin:0">Non riesco a caricare le sfide ora.</p>'; return; }
-  await syncChallengeValues(chs || []);
-  const ids = new Set(); (chs||[]).forEach(c => { ids.add(c.challenger); ids.add(c.opponent); });
+  const cids = (chs||[]).map(c=>c.id);
+  let parts = await fetchParts(cids);
+  await syncChallengeValues(chs || [], parts);
+  parts = await fetchParts(cids);   // ricarico i valori aggiornati
+  const ids = new Set(); (chs||[]).forEach(c => ids.add(c.challenger));
+  Object.values(parts).forEach(arr => arr.forEach(p => ids.add(p.user_id)));
   const names = {};
   if (ids.size) { const { data: profs } = await cloud.from('profiles').select('user_id,name,club,code').in('user_id', [...ids]); (profs||[]).forEach(p => names[p.user_id] = nameOf(p)); }
-  const vals = {}; const cids = (chs||[]).map(c=>c.id);
-  if (cids.length) { const { data: cv } = await cloud.from('challenge_values').select('challenge_id,user_id,value').in('challenge_id', cids); (cv||[]).forEach(v => { (vals[v.challenge_id] = vals[v.challenge_id]||{})[v.user_id] = v.value; }); }
-  CH = { list: chs||[], names, vals };
+  CH = { list: chs||[], parts, names };
   renderChallenges();
-  setAmiciDot(CH.list.filter(c => c.status==='pending' && c.opponent===USER.id).length);
+  const invited = Object.values(parts).reduce((n,arr) => n + arr.filter(p => p.user_id===USER.id && p.status==='invited').length, 0);
+  setAmiciDot(invited);
 }
 function renderChallenges(){
   const el = $('challenges'); if (!el) return;
   const me = USER.id, today = new Date().toISOString().slice(0,10);
-  const items = CH.list.filter(c => c.status !== 'declined');
-  if (!items.length) { el.innerHTML = '<p class="note" style="margin:0">Nessuna sfida ancora. Sfida un amico col tasto qui sopra!</p>'; return; }
+  const items = CH.list;
+  if (!items.length) { el.innerHTML = '<p class="note" style="margin:0">Nessuna sfida ancora. Sfida i tuoi amici col tasto qui sopra!</p>'; return; }
+  const nm = uid => CH.names[uid] || (uid===me ? 'Tu' : 'Amico');
   el.innerHTML = items.map(c => {
-    const other = c.challenger===me ? c.opponent : c.challenger;
-    const meName = CH.names[me] || 'Tu', otName = CH.names[other] || 'Amico';
-    if (c.status === 'pending') {
-      if (c.opponent === me) {
-        return `<div class="ch-item"><div class="ch-title">${CH.names[c.challenger]||'Un amico'} ti sfida</div>
-          <div class="ch-meta">${chMetricLabel(c.metric)} · fino al ${chFmtDate(c.end_date)}</div>
-          <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" style="flex:1;margin:0" onclick="respondChallenge('${c.id}',true)">Accetta</button><button class="btn secondary" style="flex:1;margin:0" onclick="respondChallenge('${c.id}',false)">Rifiuta</button></div></div>`;
-      }
-      return `<div class="ch-item"><div class="ch-title">Hai sfidato ${otName}</div><div class="ch-meta">${chMetricLabel(c.metric)} · fino al ${chFmtDate(c.end_date)} · in attesa di risposta…</div></div>`;
+    const parts = CH.parts[c.id] || [];
+    const mine = parts.find(p => p.user_id === me);
+    if (mine && mine.status === 'invited') {
+      const nAcc = parts.filter(p => p.status==='accepted').length;
+      return `<div class="ch-item"><div class="ch-title">${nm(c.challenger)} ti sfida</div>
+        <div class="ch-meta">${chMetricLabel(c.metric)} · fino al ${chFmtDate(c.end_date)} · ${nAcc} già dentro</div>
+        <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" style="flex:1;margin:0" onclick="respondChallenge('${c.id}',true)">Accetta</button><button class="btn secondary" style="flex:1;margin:0" onclick="respondChallenge('${c.id}',false)">Rifiuta</button></div></div>`;
     }
     const ended = c.end_date < today;
-    const mv = (CH.vals[c.id]||{})[me], ov = (CH.vals[c.id]||{})[other];
-    const cmp = (a,b) => { if (a==null && b==null) return 0; if (a==null) return 1; if (b==null) return -1; return c.metric==='drop' ? (b-a) : (a-b); };
-    const rr = cmp(mv, ov); const leader = rr<0 ? 'me' : (rr>0 ? 'other' : 'tie');
     const daysLeft = Math.ceil((new Date(c.end_date) - new Date(today)) / 86400000);
-    const foot = ended ? (leader==='tie' ? 'Sfida conclusa · pari' : 'Sfida conclusa · vince ' + (leader==='me'?meName:otName))
+    const accepted = parts.filter(p => p.status === 'accepted');
+    const better = (a,b) => c.metric==='drop'
+      ? ((b.value==null?-1e9:+b.value) - (a.value==null?-1e9:+a.value))
+      : ((a.value==null?1e9:+a.value) - (b.value==null?1e9:+b.value));
+    accepted.sort(better);
+    const leaderId = accepted.length && accepted[0].value!=null ? accepted[0].user_id : null;
+    const pending = parts.filter(p => p.status === 'invited').length;
+    const medals = ['🥇','🥈','🥉'];
+    const rows = accepted.length ? accepted.map((p,i) => {
+      const isMe = p.user_id===me, isLead = p.user_id===leaderId;
+      const rank = i<3 ? medals[i] : `<b>${i+1}</b>`;
+      return `<div class="chl-row${isMe?' me':''}"><span class="chl-rank">${rank}</span><span class="chl-name">${nm(p.user_id)}${isLead?' 👑':''}</span><span class="chl-val">${chFmtVal(c.metric,p.value)}</span></div>`;
+    }).join('') : '<div class="ch-meta">Ancora nessun partecipante.</div>';
+    const winner = ended ? (leaderId ? 'Sfida conclusa · vince ' + nm(leaderId) : 'Sfida conclusa')
       : (daysLeft<=0 ? 'Ultimo giorno!' : (daysLeft + ' giorni alla fine'));
-    const side = (nm,val,isLead) => `<div class="ch-side${isLead?' lead':''}"><div class="chs-name">${nm}${isLead?' 👑':''}</div><div class="chs-val">${chFmtVal(c.metric,val)}</div></div>`;
+    const sub = (pending>0 && !ended) ? ` · ${pending} in attesa` : '';
     return `<div class="ch-item"><div class="ch-title">${chMetricLabel(c.metric)}</div>
-      <div class="ch-vs">${side(meName,mv,leader==='me')}<span class="ch-mid">vs</span>${side(otName,ov,leader==='other')}</div>
-      <div class="ch-meta" style="text-align:center;margin-top:8px">${foot}</div></div>`;
+      <div class="ch-meta">fino al ${chFmtDate(c.end_date)}${sub}</div>
+      <div class="chl-list">${rows}</div>
+      <div class="ch-meta" style="text-align:center;margin-top:8px">${winner}</div></div>`;
   }).join('');
 }
 async function openChForm(){
   if (!cloud || !USER) { alert('Le sfide sono disponibili con l\'account online.'); return; }
   $('chForm').classList.remove('hidden'); $('chMsg').textContent='';
-  const sel = $('chFriend');
+  const box = $('chFriends');
   const { data } = await cloud.from('profiles').select('user_id,name,club,code');
   const friends = (data||[]).filter(p => p.user_id !== USER.id);
-  sel.innerHTML = friends.length ? friends.map(f => `<option value="${f.user_id}">${nameOf(f)}</option>`).join('') : '<option value="">Nessun amico collegato</option>';
+  box.innerHTML = friends.length
+    ? friends.map(f => `<label class="ch-fr"><input type="checkbox" value="${f.user_id}"><span>${nameOf(f)}</span></label>`).join('')
+    : '<p class="note" style="margin:0">Nessun amico collegato. Aggiungi un amico col codice.</p>';
   const d = new Date(), eom = new Date(d.getFullYear(), d.getMonth()+1, 0);
   $('chEnd').value = eom.toISOString().slice(0,10);
 }
 function closeChForm(){ $('chForm').classList.add('hidden'); }
 async function createChallenge(){
-  const opp = $('chFriend').value, metric = $('chMetric').value, end = $('chEnd').value;
-  if (!opp) { $('chMsg').textContent = 'Non hai ancora amici da sfidare.'; return; }
+  const metric = $('chMetric').value, end = $('chEnd').value;
+  const friends = [...document.querySelectorAll('#chFriends input:checked')].map(i => i.value);
+  if (!friends.length) { $('chMsg').textContent = 'Scegli almeno un amico.'; return; }
   if (!end) { $('chMsg').textContent = 'Scegli una data di fine.'; return; }
   $('chMsg').textContent = 'Invio…';
-  const { error } = await cloud.rpc('create_challenge', { p_opponent: opp, p_metric: metric, p_end: end });
+  const { error } = await cloud.rpc('create_group_challenge', { p_metric: metric, p_end: end, p_friends: friends, p_title: null });
   if (error) { $('chMsg').textContent = 'Errore, riprova.'; return; }
-  $('chMsg').textContent = 'Sfida inviata ✓'; $('chForm').classList.add('hidden');
+  $('chMsg').textContent = friends.length>1 ? 'Sfida inviata agli amici ✓' : 'Sfida inviata ✓'; $('chForm').classList.add('hidden');
   loadChallenges();
 }
 async function respondChallenge(id, accept){
-  const { error } = await cloud.rpc('respond_challenge', { p_id: id, p_accept: accept });
+  const { error } = await cloud.from('challenge_participants').update({ status: accept ? 'accepted' : 'declined', updated_at: new Date().toISOString() }).eq('challenge_id', id).eq('user_id', USER.id);
   if (!error) loadChallenges();
 }
 // Campo di riferimento per tradurre l'obiettivo in colpi/punti (il tuo club dal profilo, o un campo tipo)
