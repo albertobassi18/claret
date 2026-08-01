@@ -89,6 +89,15 @@
   .stat .v { font-size: 1.25rem; font-weight: 800; color: var(--green); }
   .stat .l { font-size: .64rem; color: var(--muted); text-transform: uppercase; }
   .up { color: var(--red); } .down { color: var(--grass); } .flat { color: var(--muted); }
+  /* ---- Intestazione Amici (sotto-schede) ---- */
+  .am-head { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
+  .am-topbar { display: flex; justify-content: space-between; align-items: center; }
+  .am-invite-btn { background: var(--green-light); color: var(--blue); border: none; border-radius: 20px; padding: 8px 15px; font-size: .82rem; font-weight: 600; cursor: pointer; }
+  #amiciNav .pill { flex: 1; text-align: center; }
+  .am-subdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #ce2b37; margin-left: 6px; vertical-align: middle; }
+  .am-code { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--green-light); border-radius: 10px; padding: 11px 14px; margin-bottom: 14px; }
+  .am-code-label { font-size: .62rem; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+  .am-code-val { font-family: var(--serif); font-size: 1.5rem; letter-spacing: 3px; color: var(--blue); }
   /* ---- Classifica amici ---- */
   .callout { background: var(--green-light); border-radius: 12px; padding: 11px 14px; font-size: .92rem; color: var(--green); margin-bottom: 12px; }
   .badge-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
@@ -395,60 +404,81 @@
 
 <!-- ===== AMICI ===== -->
 <section id="tab-amici" class="hidden">
-  <div class="card">
-    <h2>Il tuo codice amico</h2>
-    <p class="note" style="margin-top:0">Condividi questo codice (o il link) con gli amici: chi lo inserisce si collega a te.</p>
-    <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap">
-      <div id="myCode" style="font-family:var(--serif);font-size:1.8rem;letter-spacing:3px;color:var(--blue)">—</div>
-      <button class="btn secondary" style="margin:0" onclick="shareCode()">Condividi</button>
+  <div class="am-head">
+    <div class="am-topbar">
+      <h2 style="margin:0;border:0">Amici</h2>
+      <button class="am-invite-btn" onclick="toggleInvite()">+ Invita</button>
     </div>
-    <button class="btn" style="width:100%;margin-top:10px" onclick="shareCard()">Condividi la mia card</button>
+    <div class="pill-row" id="amiciNav" style="margin:12px 0 0">
+      <span class="pill sel" data-v="lb">Classifica</span>
+      <span class="pill" data-v="ch">Sfide<span id="amChDot" class="am-subdot hidden"></span></span>
+      <span class="pill" data-v="feed">Novità</span>
+    </div>
   </div>
 
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-      <h2 style="margin:0;border:0">Sfide</h2>
-      <button class="btn secondary" style="margin:0;width:auto;padding:8px 14px" onclick="openChForm()">Nuova sfida</button>
-    </div>
-    <div id="chForm" class="hidden" style="margin-top:12px">
-      <label>Scegli gli amici</label>
-      <div id="chFriends" class="ch-friendlist"></div>
-      <label>Tipo di sfida</label>
-      <select id="chMetric">
-        <option value="drop">Chi scende di più (handicap)</option>
-        <option value="best_sd">Miglior gara (SD più basso)</option>
-      </select>
-      <label>Fino al</label>
-      <input id="chEnd" type="date">
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button class="btn secondary" style="flex:1;margin:0" onclick="closeChForm()">Annulla</button>
-        <button class="btn" style="flex:1;margin:0" onclick="createChallenge()">Invia sfida</button>
+  <div id="amInvite" class="card hidden">
+    <h2 style="margin-top:0">Invita un amico</h2>
+    <p class="note" style="margin-top:0">Dai il tuo codice a un amico, oppure inserisci il suo per collegarvi.</p>
+    <div class="am-code">
+      <div>
+        <div class="am-code-label">Il tuo codice</div>
+        <div id="myCode" class="am-code-val">—</div>
       </div>
-      <span class="note" id="chMsg" style="display:block;text-align:center;margin-top:6px"></span>
+      <button class="btn secondary" style="margin:0;width:auto" onclick="shareCode()">Condividi</button>
     </div>
-    <div id="challenges" style="margin-top:12px"></div>
-  </div>
-  <div class="card">
-    <h2>Aggiungi un amico</h2>
-    <label>Codice dell'amico</label>
-    <input id="friendCode" type="text" placeholder="es. AB7K9P" autocomplete="off" style="text-transform:uppercase">
-    <button class="btn" style="width:100%" onclick="addFriendByCode()">Aggiungi</button>
+    <label>Aggiungi un amico col suo codice</label>
+    <div style="display:flex;gap:8px">
+      <input id="friendCode" type="text" placeholder="es. AB7K9P" autocomplete="off" style="text-transform:uppercase;flex:1">
+      <button class="btn" style="margin:0;width:auto;padding:10px 16px" onclick="addFriendByCode()">Aggiungi</button>
+    </div>
     <span class="note" id="friendMsg" style="display:block;text-align:center;margin-top:6px"></span>
+    <button class="btn secondary" style="width:100%;margin-top:12px" onclick="shareCard()">Condividi la mia card</button>
   </div>
-  <div class="card">
-    <h2>Ultime dagli amici</h2>
-    <div id="lbFeed"><p class="note" style="margin:0">Carico le novità…</p></div>
-  </div>
-  <div class="card">
-    <h2>Classifica amici</h2>
-    <div id="lbCallout"></div>
-    <div id="lbBadges"></div>
-    <div class="pill-row" id="lbSort" style="margin:0 0 10px">
-      <span class="pill sel" data-s="index">Handicap più basso</span>
-      <span class="pill" data-s="drop">Sceso di più (mese)</span>
-      <span class="pill" data-s="rounds">Più gare</span>
+
+  <div id="amView-lb">
+    <div class="card">
+      <div id="lbCallout"></div>
+      <div id="lbBadges"></div>
+      <div class="pill-row" id="lbSort" style="margin:0 0 10px">
+        <span class="pill sel" data-s="index">Handicap più basso</span>
+        <span class="pill" data-s="drop">Sceso di più (mese)</span>
+        <span class="pill" data-s="rounds">Più gare</span>
+      </div>
+      <div id="leaderboard"></div>
     </div>
-    <div id="leaderboard"></div>
+  </div>
+
+  <div id="amView-ch" class="hidden">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <h2 style="margin:0;border:0">Le tue sfide</h2>
+        <button class="btn secondary" style="margin:0;width:auto;padding:8px 14px" onclick="openChForm()">Nuova sfida</button>
+      </div>
+      <div id="chForm" class="hidden" style="margin-top:12px">
+        <label>Scegli gli amici</label>
+        <div id="chFriends" class="ch-friendlist"></div>
+        <label>Tipo di sfida</label>
+        <select id="chMetric">
+          <option value="drop">Chi scende di più (handicap)</option>
+          <option value="best_sd">Miglior gara (SD più basso)</option>
+        </select>
+        <label>Fino al</label>
+        <input id="chEnd" type="date">
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn secondary" style="flex:1;margin:0" onclick="closeChForm()">Annulla</button>
+          <button class="btn" style="flex:1;margin:0" onclick="createChallenge()">Invia sfida</button>
+        </div>
+        <span class="note" id="chMsg" style="display:block;text-align:center;margin-top:6px"></span>
+      </div>
+      <div id="challenges" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <div id="amView-feed" class="hidden">
+    <div class="card">
+      <h2 style="margin-top:0">Ultime dagli amici</h2>
+      <div id="lbFeed"><p class="note" style="margin:0">Carico le novità…</p></div>
+    </div>
   </div>
 </section>
 
@@ -1400,8 +1430,18 @@ function renderFeed(list){
     ? top.map(e=>`<div class="feed-item"><span class="ft">${e.t}</span><span class="feed-when">${relTime(e.d)}</span></div>`).join('')
     : '<p class="note" style="margin:0">Nessuna novità recente. Gioca una gara o aggiungi amici!</p>';
 }
+let amiciView = 'lb';
+function switchAmiciView(v){
+  amiciView = v;
+  document.querySelectorAll('#amiciNav .pill').forEach(p => p.classList.toggle('sel', p.dataset.v === v));
+  $('amView-lb').classList.toggle('hidden', v !== 'lb');
+  $('amView-ch').classList.toggle('hidden', v !== 'ch');
+  $('amView-feed').classList.toggle('hidden', v !== 'feed');
+}
+function toggleInvite(){ $('amInvite').classList.toggle('hidden'); if (S.code) $('myCode').textContent = S.code; }
 function renderAmici(){
   if (S.code) $('myCode').textContent = S.code;
+  document.querySelectorAll('#amiciNav .pill').forEach(p => p.onclick = () => switchAmiciView(p.dataset.v));
   document.querySelectorAll('#lbSort .pill').forEach(p => p.onclick = () => {
     document.querySelectorAll('#lbSort .pill').forEach(x=>x.classList.remove('sel'));
     p.classList.add('sel'); lbSort = p.dataset.s; loadLeaderboard();
@@ -1525,6 +1565,8 @@ async function loadChallenges(){
   renderChallenges();
   const invited = Object.values(parts).reduce((n,arr) => n + arr.filter(p => p.user_id===USER.id && p.status==='invited').length, 0);
   setAmiciDot(invited);
+  const sd = $('amChDot'); if (sd) sd.classList.toggle('hidden', invited <= 0);
+  if (invited > 0 && amiciView === 'lb') switchAmiciView('ch');
 }
 function renderChallenges(){
   const el = $('challenges'); if (!el) return;

@@ -1,5 +1,5 @@
 // Service worker Claret — network-first (aggiornamenti freschi) con fallback offline.
-const CACHE = 'claret-v7';
+const CACHE = 'claret-v8';
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil((async () => {
   const keys = await caches.keys();
